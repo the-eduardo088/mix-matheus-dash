@@ -77,24 +77,39 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Mix Mateus · Painel de Base para Campanhas" },
+      { title: "Mix Mateus · Painel da Base para Campanhas de WhatsApp" },
       {
         name: "description",
         content:
-          "Painel analítico da base de contatos Mix Mateus: telefones, clusters, perfis e cobertura por loja para campanhas de WhatsApp.",
+          "Painel analítico restrito da base Mix Mateus: telefones, operadoras, clusters, perfil demográfico e cobertura regional. Base, segmentação e disparos por ATONNS Tecnologia.",
       },
       { name: "theme-color", content: "#e01e1e" },
-      { property: "og:title", content: "Mix Mateus · Painel de Base" },
+      { name: "robots", content: "noindex, nofollow" },
+      { property: "og:site_name", content: "Mix Mateus · ATONNS" },
+      { property: "og:title", content: "Mix Mateus · Painel da Base para Campanhas" },
       {
         property: "og:description",
-        content: "Visão detalhada da base de telefones e perfis para campanhas.",
+        content:
+          "Análise da base de telefones e perfis para campanhas de WhatsApp. Segmentação e disparos por ATONNS Tecnologia e Comunicação.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:image", content: "/logo-mix.png" },
+      { property: "og:image:width", content: "1000" },
+      { property: "og:image:height", content: "313" },
+      { property: "og:image:alt", content: "Mix Mateus" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Mix Mateus · Painel da Base para Campanhas" },
+      {
+        name: "twitter:description",
+        content: "Análise da base para campanhas de WhatsApp. Por ATONNS Tecnologia e Comunicação.",
+      },
+      { name: "twitter:image", content: "/logo-mix.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/logo-mix.png", type: "image/png" },
+      { rel: "shortcut icon", href: "/logo-mix.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/logo-mix.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -116,7 +131,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="pt-BR">
       <head>
         <HeadContent />
       </head>

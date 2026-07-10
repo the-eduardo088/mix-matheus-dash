@@ -14,7 +14,7 @@ export function ChartCard({
   className?: string;
 }) {
   return (
-    <div className={`flex flex-col rounded-2xl border bg-card p-5 shadow-sm ${className ?? ""}`}>
+    <div className={`print-card flex flex-col rounded-2xl border bg-card p-5 shadow-sm ${className ?? ""}`}>
       <div className="mb-4 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
         <div className="min-w-0">
           <h3 className="font-display text-base font-semibold tracking-tight text-foreground">{title}</h3>

@@ -1,0 +1,114 @@
+import { useEffect, useState } from "react";
+import { Cell, Pie, PieChart, ResponsiveContainer, Sector } from "recharts";
+
+import { formatNumber } from "@/lib/mix-data";
+
+export type DonutDatum = { name: string; value: number; fill: string };
+
+/** Realce leve da fatia sob o cursor (sem tooltip flutuante que cobre a tela). */
+function ActiveSlice(props: any) {
+  const { outerRadius = 0 } = props;
+  return <Sector {...props} outerRadius={outerRadius + 5} />;
+}
+
+/**
+ * Donut padronizado: separadores finos na cor do card (sem contornos brancos),
+ * e um LEITOR central interativo. Ao passar o mouse numa fatia, o centro mostra
+ * aquela fatia — nada de tooltip flutuante sobrepondo o restante da análise.
+ */
+export function DonutChart({
+  data,
+  centerLabel,
+  height = 210,
+}: {
+  data: DonutDatum[];
+  centerLabel?: string;
+  height?: number;
+}) {
+  const total = data.reduce((sum, d) => sum + d.value, 0);
+  const [active, setActive] = useState<number | null>(null);
+
+  // Se o recorte muda (novo conjunto de dados), zera o realce para não apontar
+  // para uma fatia que não existe mais.
+  useEffect(() => setActive(null), [data]);
+
+  const focus = active != null ? data[active] : null;
+  const centerValue = focus ? focus.value : total;
+  const centerText = focus ? focus.name : centerLabel;
+  const centerPct =
+    focus && total
+      ? ((focus.value / total) * 100).toFixed(focus.value / total < 0.01 ? 1 : 0)
+      : null;
+
+  return (
+    <div className="flex flex-col">
+      <div className="relative" style={{ height }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius="62%"
+              outerRadius="92%"
+              paddingAngle={1.5}
+              stroke="var(--color-card)"
+              strokeWidth={2}
+              startAngle={90}
+              endAngle={-270}
+              activeIndex={active ?? undefined}
+              activeShape={ActiveSlice}
+              onMouseEnter={(_, i) => setActive(i)}
+              onMouseLeave={() => setActive(null)}
+            >
+              {data.map((d, i) => (
+                <Cell key={i} fill={d.fill} style={{ outline: "none" }} />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
+          <span className="font-num font-display text-2xl font-bold leading-none tracking-tight text-foreground">
+            {formatNumber(centerValue)}
+          </span>
+          {centerText && (
+            <span
+              className="font-subtitle mt-1 max-w-full truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+              title={centerText}
+            >
+              {centerPct ? `${centerText} · ${centerPct}%` : centerText}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Legenda com valor — identidade + participação, nunca só a cor */}
+      <ul className="mt-3 space-y-1.5">
+        {data.map((d, i) => {
+          const share = total ? (d.value / total) * 100 : 0;
+          return (
+            <li
+              key={d.name}
+              onMouseEnter={() => setActive(i)}
+              onMouseLeave={() => setActive(null)}
+              className={`grid cursor-default grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-1 py-0.5 text-xs transition-colors ${
+                active === i ? "bg-muted" : ""
+              }`}
+            >
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: d.fill }} />
+              <span className="truncate text-muted-foreground">{d.name}</span>
+              <span className="font-num tabular-nums">
+                <span className="font-semibold text-foreground">
+                  {share.toFixed(share < 1 ? 1 : 0)}%
+                </span>
+                <span className="ml-2 text-muted-foreground">{formatNumber(d.value)}</span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}

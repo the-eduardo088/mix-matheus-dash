@@ -86,6 +86,44 @@
   --chart-6: oklch(0.72 0.14 200);  /* cyan */
   --chart-7: oklch(0.68 0.16 100);  /* olive */
   --chart-8: oklch(0.55 0.13 20);   /* brick */
+
+  /* Sequential ramps — one hue family per ORDERED dimension (low → high = light → dark).
+     Reads the order in the color. Light mode: light end recedes toward the card surface. */
+  --ramp-idade-1: oklch(0.85 0.07 72); /* amber */
+  --ramp-idade-2: oklch(0.80 0.10 68);
+  --ramp-idade-3: oklch(0.75 0.12 64);
+  --ramp-idade-4: oklch(0.70 0.14 60);
+  --ramp-idade-5: oklch(0.65 0.15 55);
+  --ramp-idade-6: oklch(0.60 0.16 50);
+  --ramp-idade-7: oklch(0.55 0.17 44);
+  --ramp-idade-8: oklch(0.51 0.18 40);
+
+  --ramp-renda-1: oklch(0.84 0.06 250); /* blue */
+  --ramp-renda-2: oklch(0.78 0.09 252);
+  --ramp-renda-3: oklch(0.72 0.12 254);
+  --ramp-renda-4: oklch(0.66 0.15 256);
+  --ramp-renda-5: oklch(0.60 0.17 258);
+  --ramp-renda-6: oklch(0.55 0.18 260);
+  --ramp-renda-7: oklch(0.50 0.19 262);
+  --ramp-renda-8: oklch(0.45 0.20 264);
+
+  --ramp-classe-1: oklch(0.83 0.07 305); /* violet */
+  --ramp-classe-2: oklch(0.77 0.10 303);
+  --ramp-classe-3: oklch(0.71 0.13 301);
+  --ramp-classe-4: oklch(0.65 0.16 300);
+  --ramp-classe-5: oklch(0.59 0.18 300);
+  --ramp-classe-6: oklch(0.54 0.19 299);
+  --ramp-classe-7: oklch(0.49 0.20 298);
+  --ramp-classe-8: oklch(0.45 0.20 297);
+
+  --ramp-esc-1: oklch(0.84 0.07 180); /* teal */
+  --ramp-esc-2: oklch(0.79 0.09 178);
+  --ramp-esc-3: oklch(0.74 0.11 176);
+  --ramp-esc-4: oklch(0.69 0.12 174);
+  --ramp-esc-5: oklch(0.64 0.13 172);
+  --ramp-esc-6: oklch(0.59 0.13 170);
+  --ramp-esc-7: oklch(0.54 0.13 168);
+  --ramp-esc-8: oklch(0.50 0.13 166);
 }
 
 .dark {
@@ -122,6 +160,44 @@
   --chart-6: oklch(0.78 0.13 200);
   --chart-7: oklch(0.75 0.15 100);
   --chart-8: oklch(0.65 0.13 20);
+
+  /* Dark ramps — flipped so the low end recedes toward the dark surface and the
+     high end is the brightest step (sequential anchor flip for dark mode). */
+  --ramp-idade-1: oklch(0.46 0.09 55);
+  --ramp-idade-2: oklch(0.51 0.11 58);
+  --ramp-idade-3: oklch(0.57 0.13 60);
+  --ramp-idade-4: oklch(0.63 0.15 63);
+  --ramp-idade-5: oklch(0.68 0.16 66);
+  --ramp-idade-6: oklch(0.73 0.16 68);
+  --ramp-idade-7: oklch(0.78 0.16 70);
+  --ramp-idade-8: oklch(0.83 0.15 72);
+
+  --ramp-renda-1: oklch(0.44 0.11 263);
+  --ramp-renda-2: oklch(0.50 0.13 261);
+  --ramp-renda-3: oklch(0.55 0.15 260);
+  --ramp-renda-4: oklch(0.61 0.16 259);
+  --ramp-renda-5: oklch(0.66 0.17 258);
+  --ramp-renda-6: oklch(0.71 0.16 257);
+  --ramp-renda-7: oklch(0.76 0.15 256);
+  --ramp-renda-8: oklch(0.81 0.14 255);
+
+  --ramp-classe-1: oklch(0.45 0.12 300);
+  --ramp-classe-2: oklch(0.51 0.15 300);
+  --ramp-classe-3: oklch(0.57 0.17 301);
+  --ramp-classe-4: oklch(0.63 0.18 302);
+  --ramp-classe-5: oklch(0.68 0.18 303);
+  --ramp-classe-6: oklch(0.73 0.17 304);
+  --ramp-classe-7: oklch(0.78 0.16 305);
+  --ramp-classe-8: oklch(0.82 0.15 306);
+
+  --ramp-esc-1: oklch(0.45 0.10 170);
+  --ramp-esc-2: oklch(0.51 0.11 172);
+  --ramp-esc-3: oklch(0.57 0.12 174);
+  --ramp-esc-4: oklch(0.62 0.13 176);
+  --ramp-esc-5: oklch(0.67 0.13 178);
+  --ramp-esc-6: oklch(0.72 0.13 180);
+  --ramp-esc-7: oklch(0.77 0.13 182);
+  --ramp-esc-8: oklch(0.81 0.12 184);
 }
 
 @layer base {
@@ -146,3 +222,91 @@
 @utility font-display { font-family: var(--font-display); }
 @utility font-subtitle { font-family: var(--font-subtitle); }
 @utility font-num { font-family: var(--font-mono); font-feature-settings: "tnum"; }
+
+/* Recharts: kill the extra focus outline on active sectors/bars */
+.recharts-wrapper:focus,
+.recharts-surface:focus,
+.recharts-sector:focus,
+.recharts-rectangle:focus {
+  outline: none;
+}
+
+/* Recharts: floating tooltips must sit above neighbouring cards, never blend
+   into the analysis behind them. */
+.recharts-tooltip-wrapper {
+  z-index: 50 !important;
+  pointer-events: none;
+}
+
+/* ---- Print / "Baixar PDF" ---------------------------------------------------
+   The PDF is produced via the browser's print-to-PDF. Force a clean light layout,
+   drop interactive chrome, and keep each card whole across page breaks. */
+@media print {
+  :root, .dark {
+    /* Always print on white with the light chart palette, whatever the on-screen theme */
+    --background: #ffffff;
+    --card: #ffffff;
+    --foreground: #111827;
+    --muted: oklch(0.955 0.008 250);
+    --muted-foreground: oklch(0.45 0.02 260);
+    --border: oklch(0.85 0.01 255);
+    --primary: oklch(0.58 0.22 27);
+    --chart-1: oklch(0.58 0.22 27);
+    --chart-2: oklch(0.5 0.2 260);
+    --chart-3: oklch(0.7 0.16 60);
+    --chart-4: oklch(0.65 0.15 155);
+    --chart-5: oklch(0.62 0.19 305);
+    --chart-6: oklch(0.72 0.14 200);
+    --ramp-idade-1: oklch(0.85 0.07 72); --ramp-idade-2: oklch(0.80 0.10 68);
+    --ramp-idade-3: oklch(0.75 0.12 64); --ramp-idade-4: oklch(0.70 0.14 60);
+    --ramp-idade-5: oklch(0.65 0.15 55); --ramp-idade-6: oklch(0.60 0.16 50);
+    --ramp-idade-7: oklch(0.55 0.17 44); --ramp-idade-8: oklch(0.51 0.18 40);
+    --ramp-renda-1: oklch(0.84 0.06 250); --ramp-renda-2: oklch(0.78 0.09 252);
+    --ramp-renda-3: oklch(0.72 0.12 254); --ramp-renda-4: oklch(0.66 0.15 256);
+    --ramp-renda-5: oklch(0.60 0.17 258); --ramp-renda-6: oklch(0.55 0.18 260);
+    --ramp-renda-7: oklch(0.50 0.19 262); --ramp-renda-8: oklch(0.45 0.20 264);
+    --ramp-classe-1: oklch(0.83 0.07 305); --ramp-classe-2: oklch(0.77 0.10 303);
+    --ramp-classe-3: oklch(0.71 0.13 301); --ramp-classe-4: oklch(0.65 0.16 300);
+    --ramp-classe-5: oklch(0.59 0.18 300); --ramp-classe-6: oklch(0.54 0.19 299);
+    --ramp-classe-7: oklch(0.49 0.20 298); --ramp-classe-8: oklch(0.45 0.20 297);
+    --ramp-esc-1: oklch(0.84 0.07 180); --ramp-esc-2: oklch(0.79 0.09 178);
+    --ramp-esc-3: oklch(0.74 0.11 176); --ramp-esc-4: oklch(0.69 0.12 174);
+    --ramp-esc-5: oklch(0.64 0.13 172); --ramp-esc-6: oklch(0.59 0.13 170);
+    --ramp-esc-7: oklch(0.54 0.13 168); --ramp-esc-8: oklch(0.50 0.13 166);
+  }
+  /* Ensure chart fills actually render in print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  html, body {
+    background: #ffffff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  header.sticky {
+    position: static !important;
+    box-shadow: none !important;
+  }
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  .print-card,
+  section > .print-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+  }
+  section {
+    break-inside: avoid;
+  }
+  .recharts-wrapper,
+  .recharts-surface {
+    overflow: visible !important;
+  }
+  @page {
+    margin: 14mm;
+  }
+}

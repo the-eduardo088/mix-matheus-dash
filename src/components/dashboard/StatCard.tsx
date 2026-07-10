@@ -22,7 +22,7 @@ export function StatCard({
           ? "text-[color:var(--success)]"
           : "text-foreground";
   return (
-    <div className="group relative overflow-hidden rounded-2xl border bg-card p-5 shadow-sm transition hover:shadow-md">
+    <div className="print-card group relative overflow-hidden rounded-2xl border bg-card p-5 shadow-sm transition hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="font-subtitle text-xs font-semibold uppercase tracking-wider text-muted-foreground">

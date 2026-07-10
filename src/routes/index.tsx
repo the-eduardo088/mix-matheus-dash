@@ -1,12 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
   Legend,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -28,37 +26,61 @@ import {
   Sun,
   Moon,
   Laptop,
+  LogOut,
 } from "lucide-react";
 import { createFileRoute } from "@tanstack/react-router";
 
-import logoAsset from "@/assets/mix-mateus-logo.png.asset.json";
+import { isAuthed, clearAuthed } from "@/lib/auth";
+import { LoginScreen } from "@/components/auth/LoginScreen";
 import {
-  CHART_COLORS,
+  NA_FILL,
+  PRESTADORA_COLORS,
+  REGION_COLORS,
+  SEXO_COLORS,
   formatCurrency,
   formatNumber,
   getScope,
   lojasSemRegistro,
   meta,
   pct,
+  rampFill,
   scopes,
   toBuckets,
 } from "@/lib/mix-data";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ChartCard } from "@/components/dashboard/ChartCard";
+import { DonutChart } from "@/components/dashboard/DonutChart";
+import { DownloadMenu } from "@/components/dashboard/DownloadMenu";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Painel Mix Mateus · Base para Campanhas de WhatsApp" },
+      { title: "Mix Mateus · Painel da Base para Campanhas de WhatsApp" },
       {
         name: "description",
         content:
-          "Dashboard interativo da base Mix Mateus: telefones por cluster, prestadoras, perfil demográfico e cobertura por loja.",
+          "Painel analítico restrito da base Mix Mateus: telefones por cluster, operadoras, perfil demográfico e cobertura regional. Segmentação e disparos por ATONNS Tecnologia.",
       },
     ],
   }),
-  component: Dashboard,
+  component: PainelGate,
 });
+
+/**
+ * Portão de acesso: enquanto não autenticado, renderiza a tela de login.
+ * O servidor sempre renderiza como "não autenticado" (o dashboard nunca vai no
+ * HTML inicial); no cliente, o efeito confere a sessão e libera o painel.
+ */
+function PainelGate() {
+  const [authed, setAuthedState] = useState(false);
+
+  useEffect(() => {
+    if (isAuthed()) setAuthedState(true);
+  }, []);
+
+  if (!authed) return <LoginScreen onSuccess={() => setAuthedState(true)} />;
+  return <Dashboard onLogout={() => setAuthedState(false)} />;
+}
 
 type ThemeMode = "auto" | "light" | "dark";
 
@@ -82,28 +104,48 @@ function ThemeToggle() {
     { id: "dark", icon: Moon, label: "Escuro" },
   ];
 
+  const activeOpt = opts.find((o) => o.id === mode) ?? opts[0];
+  const CurrentIcon = activeOpt.icon;
+  function cycle() {
+    const idx = opts.findIndex((o) => o.id === mode);
+    apply(opts[(idx + 1) % opts.length].id);
+  }
+
   return (
-    <div className="inline-flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm">
-      {opts.map((o) => {
-        const Icon = o.icon;
-        const active = mode === o.id;
-        return (
-          <button
-            key={o.id}
-            onClick={() => apply(o.id)}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-              active
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            }`}
-            aria-label={`Tema ${o.label}`}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{o.label}</span>
-          </button>
-        );
-      })}
-    </div>
+    <>
+      {/* Mobile: um único botão que alterna Auto → Claro → Escuro (economiza espaço no header) */}
+      <button
+        onClick={cycle}
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border bg-card text-muted-foreground shadow-sm transition hover:text-foreground sm:hidden"
+        aria-label={`Tema: ${activeOpt.label} — toque para alternar`}
+        title={`Tema: ${activeOpt.label}`}
+      >
+        <CurrentIcon className="h-4 w-4" />
+      </button>
+
+      {/* Desktop: controle segmentado com os três modos */}
+      <div className="hidden items-center gap-1 rounded-full border bg-card p-1 shadow-sm sm:inline-flex">
+        {opts.map((o) => {
+          const Icon = o.icon;
+          const active = mode === o.id;
+          return (
+            <button
+              key={o.id}
+              onClick={() => apply(o.id)}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+              aria-label={`Tema ${o.label}`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{o.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -129,63 +171,82 @@ function TooltipBox({ active, payload, label, unit = "" }: any) {
   );
 }
 
-function Dashboard() {
+function Dashboard({ onLogout }: { onLogout: () => void }) {
+  function handleLogout() {
+    clearAuthed();
+    onLogout();
+  }
+
   const [scopeId, setScopeId] = useState<string>("geral");
   const scope = getScope(scopeId);
 
   const totalContatos = scope.contatos;
   const totalPessoas = scope.pessoas;
 
+  // Operadora — carrier-recognisable hues (identity, not rank)
   const prestadoraData = useMemo(
     () =>
       toBuckets(scope.prestadora, meta.ordens.prest)
         .filter((b) => b.value > 0)
-        .map((b, i) => ({ name: b.key, value: b.value, fill: CHART_COLORS[i % CHART_COLORS.length] })),
+        .map((b) => ({ name: b.key, value: b.value, fill: PRESTADORA_COLORS[b.key] ?? NA_FILL })),
     [scope],
   );
 
-  const dddData = useMemo(
-    () =>
-      toBuckets(scope.ddd).map((b, i) => ({
-        name: b.key,
+  // DDD — regional coverage; distinct region hues + share of the base
+  const dddData = useMemo(() => {
+    const buckets = toBuckets(scope.ddd);
+    const total = buckets.reduce((s, b) => s + b.value, 0);
+    return buckets.map((b, i) => {
+      const [code, ...rest] = b.key.split(" · ");
+      return {
+        code,
+        label: rest.join(" · ") || b.key,
         value: b.value,
-        fill: CHART_COLORS[i % CHART_COLORS.length],
-      })),
-    [scope],
-  );
+        share: total ? (b.value / total) * 100 : 0,
+        fill: REGION_COLORS[i % REGION_COLORS.length],
+      };
+    });
+  }, [scope]);
 
-  const idadeData = useMemo(
-    () => toBuckets(scope.idade_g, meta.ordens.idade_g).map((b) => ({ faixa: b.key, contatos: b.value })),
-    [scope],
-  );
+  // Faixa etária — ordered dimension → sequential amber ramp (light = novo, escuro = idoso)
+  const idadeData = useMemo(() => {
+    const buckets = toBuckets(scope.idade_g, meta.ordens.idade_g);
+    const ordered = buckets.filter((b) => b.key !== "Não informado");
+    return buckets.map((b) => ({
+      faixa: b.key,
+      contatos: b.value,
+      fill: b.key === "Não informado" ? NA_FILL : rampFill("idade", ordered.indexOf(b), ordered.length),
+    }));
+  }, [scope]);
 
-  const rendaData = useMemo(
-    () => toBuckets(scope.renda_f, meta.ordens.renda_f).map((b) => ({ faixa: b.key, contatos: b.value })),
-    [scope],
-  );
+  // Faixa de renda — ordered dimension → sequential blue ramp (light = baixa, escuro = alta)
+  const rendaData = useMemo(() => {
+    const buckets = toBuckets(scope.renda_f, meta.ordens.renda_f);
+    const ordered = buckets.filter((b) => b.key !== "Não informado");
+    return buckets.map((b) => ({
+      faixa: b.key,
+      contatos: b.value,
+      fill: b.key === "Não informado" ? NA_FILL : rampFill("renda", ordered.indexOf(b), ordered.length),
+    }));
+  }, [scope]);
 
-  const classeData = useMemo(
-    () =>
-      toBuckets(scope.classe, meta.ordens.classe)
-        .filter((b) => b.key !== "Não informado" && b.value > 0)
-        .map((b, i) => ({ name: b.key, value: b.value, fill: CHART_COLORS[i % CHART_COLORS.length] })),
-    [scope],
-  );
+  // Classe — ordered A→E → sequential violet ramp
+  const classeData = useMemo(() => {
+    const ordered = toBuckets(scope.classe, meta.ordens.classe).filter(
+      (b) => b.key !== "Não informado" && b.value > 0,
+    );
+    return ordered.map((b, i) => ({
+      name: b.key,
+      value: b.value,
+      fill: rampFill("classe", i, ordered.length),
+    }));
+  }, [scope]);
 
   const sexoData = useMemo(
     () =>
       toBuckets(scope.sexo, meta.ordens.sexo)
         .filter((b) => b.value > 0)
-        .map((b, i) => ({
-          name: b.key,
-          value: b.value,
-          fill:
-            b.key === "Feminino"
-              ? "var(--color-chart-1)"
-              : b.key === "Masculino"
-                ? "var(--color-chart-2)"
-                : "var(--color-chart-7)",
-        })),
+        .map((b) => ({ name: b.key, value: b.value, fill: SEXO_COLORS[b.key] ?? NA_FILL })),
     [scope],
   );
 
@@ -198,13 +259,17 @@ function Dashboard() {
     [scope],
   );
 
-  const escData = useMemo(
-    () =>
-      toBuckets(scope.esc, meta.ordens.esc)
-        .filter((b) => b.key !== "Não informado" && b.value > 0)
-        .map((b) => ({ nivel: b.key, contatos: b.value })),
-    [scope],
-  );
+  // Escolaridade — ordered → sequential teal ramp
+  const escData = useMemo(() => {
+    const ordered = toBuckets(scope.esc, meta.ordens.esc).filter(
+      (b) => b.key !== "Não informado" && b.value > 0,
+    );
+    return ordered.map((b, i) => ({
+      nivel: b.key,
+      contatos: b.value,
+      fill: rampFill("esc", i, ordered.length),
+    }));
+  }, [scope]);
 
   const cidadesData = useMemo(
     () => (scope.cidades ?? []).map(([nome, v]) => ({ cidade: nome, contatos: v })),
@@ -244,23 +309,37 @@ function Dashboard() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
       <header className="sticky top-0 z-30 border-b bg-background/85 backdrop-blur">
-        <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-3">
+        <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-4 py-3 sm:gap-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <img
-              src={logoAsset.url}
+              src="/logo-mix.png"
               alt="Mix Mateus"
-              className="h-10 w-auto shrink-0 sm:h-12"
+              width={1000}
+              height={313}
+              className="h-8 w-auto shrink-0 sm:h-11"
             />
-            <div className="min-w-0">
-              <p className="font-subtitle text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            <div className="min-w-0 border-l pl-2 sm:pl-3">
+              <p className="font-subtitle text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:text-[10px]">
                 Painel Analítico
               </p>
-              <h1 className="truncate font-display text-lg font-bold tracking-tight sm:text-xl">
+              <h1 className="truncate font-display text-sm font-bold tracking-tight sm:text-xl">
                 Base para Campanhas de WhatsApp
               </h1>
             </div>
           </div>
-          <ThemeToggle />
+          <div className="no-print flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <DownloadMenu />
+            <ThemeToggle />
+            <button
+              onClick={handleLogout}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border bg-card p-2 text-xs font-semibold text-muted-foreground shadow-sm transition hover:bg-muted hover:text-foreground sm:px-3"
+              aria-label="Sair do painel"
+              title="Sair do painel"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Sair</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -360,113 +439,38 @@ function Dashboard() {
           />
         </section>
 
-        {/* Row 1: Prestadoras (pizza) + DDD (pizza) + Comparação clusters (barras) */}
+        {/* Row 1 · Perfil da base — três donuts consistentes (proporções) */}
         <section className="grid gap-4 lg:grid-cols-3">
           <ChartCard
             title="Operadora dos telefones"
             subtitle="Distribuição por prestadora — planeje disparo por operadora"
             icon={<Phone className="h-4 w-4" />}
           >
-            <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={prestadoraData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={95}
-                    paddingAngle={2}
-                  >
-                    {prestadoraData.map((d, i) => (
-                      <Cell key={i} fill={d.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<TooltipBox />} />
-                  <Legend
-                    verticalAlign="bottom"
-                    height={36}
-                    wrapperStyle={{ fontSize: 11, fontFamily: "var(--font-subtitle)" }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </ChartCard>
-
-          <ChartCard
-            title="DDD dos telefones"
-            subtitle="Onde estão os números — cobertura regional"
-            icon={<MapPin className="h-4 w-4" />}
-          >
-            <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={dddData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={95}
-                    paddingAngle={2}
-                  >
-                    {dddData.map((d, i) => (
-                      <Cell key={i} fill={d.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<TooltipBox />} />
-                  <Legend
-                    verticalAlign="bottom"
-                    height={36}
-                    wrapperStyle={{ fontSize: 11, fontFamily: "var(--font-subtitle)" }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+            <DonutChart data={prestadoraData} centerLabel="telefones" />
           </ChartCard>
 
           <ChartCard
             title="Sexo"
             subtitle="Perfil da base para segmentação"
+            icon={<Users className="h-4 w-4" />}
+          >
+            <DonutChart data={sexoData} centerLabel="contatos" />
+          </ChartCard>
+
+          <ChartCard
+            title="Classe social"
+            subtitle="Segmentação por classe (A → E)"
             icon={<PieIcon className="h-4 w-4" />}
           >
-            <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={sexoData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={95}
-                    label={(e: any) => `${((e.percent ?? 0) * 100).toFixed(0)}%`}
-                    labelLine={false}
-                  >
-                    {sexoData.map((d, i) => (
-                      <Cell key={i} fill={d.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<TooltipBox />} />
-                  <Legend
-                    verticalAlign="bottom"
-                    height={36}
-                    wrapperStyle={{ fontSize: 11, fontFamily: "var(--font-subtitle)" }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+            <DonutChart data={classeData} centerLabel="com classe" />
           </ChartCard>
         </section>
 
-        {/* Row 2: Faixa etária + Renda (barras) */}
+        {/* Row 2 · Idade & renda — dimensões ordenadas, rampa sequencial de cor */}
         <section className="grid gap-4 lg:grid-cols-2">
           <ChartCard
             title="Faixa etária"
-            subtitle="Contatos por grupo — ajuste tom da campanha"
+            subtitle="Contatos por grupo · tom da cor = idade (claro → escuro)"
             icon={<BarChart3 className="h-4 w-4" />}
           >
             <div className="h-[280px]">
@@ -475,8 +479,12 @@ function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                   <XAxis dataKey="faixa" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatNumber(v)} />
-                  <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} />
-                  <Bar dataKey="contatos" fill="var(--color-chart-1)" radius={[6, 6, 0, 0]} />
+                  <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} wrapperStyle={{ zIndex: 50, outline: "none" }} allowEscapeViewBox={{ x: false, y: false }} />
+                  <Bar dataKey="contatos" radius={[6, 6, 0, 0]}>
+                    {idadeData.map((d, i) => (
+                      <Cell key={i} fill={d.fill} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -484,7 +492,7 @@ function Dashboard() {
 
           <ChartCard
             title="Faixa de renda"
-            subtitle="Distribuição salarial dos contatos"
+            subtitle="Distribuição salarial · tom da cor = renda (baixa → alta)"
             icon={<Wallet className="h-4 w-4" />}
           >
             <div className="h-[280px]">
@@ -493,60 +501,37 @@ function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                   <XAxis dataKey="faixa" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} angle={-20} textAnchor="end" height={60} />
                   <YAxis tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatNumber(v)} />
-                  <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} />
-                  <Bar dataKey="contatos" fill="var(--color-chart-2)" radius={[6, 6, 0, 0]} />
+                  <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} wrapperStyle={{ zIndex: 50, outline: "none" }} allowEscapeViewBox={{ x: false, y: false }} />
+                  <Bar dataKey="contatos" radius={[6, 6, 0, 0]}>
+                    {rendaData.map((d, i) => (
+                      <Cell key={i} fill={d.fill} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </ChartCard>
         </section>
 
-        {/* Row 3: Classe (pizza) + Escolaridade (barra horizontal) + CBO (barra horizontal) */}
-        <section className="grid gap-4 lg:grid-cols-3">
-          <ChartCard
-            title="Classe social"
-            subtitle="Segmentação por classe"
-            icon={<PieIcon className="h-4 w-4" />}
-          >
-            <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={classeData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={95}
-                    paddingAngle={2}
-                    label={(e: any) => e.name}
-                    labelLine={false}
-                    style={{ fontSize: 11, fontFamily: "var(--font-subtitle)" }}
-                  >
-                    {classeData.map((d, i) => (
-                      <Cell key={i} fill={d.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<TooltipBox />} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </ChartCard>
-
+        {/* Row 3 · Escolaridade & ocupação */}
+        <section className="grid gap-4 lg:grid-cols-2">
           <ChartCard
             title="Escolaridade"
-            subtitle="Nível informado (excluindo não informados)"
+            subtitle="Nível informado · tom da cor = grau (baixo → alto)"
             icon={<GraduationCap className="h-4 w-4" />}
           >
-            <div className="h-[280px]">
+            <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={escData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatNumber(v)} />
                   <YAxis dataKey="nivel" type="category" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} width={90} />
-                  <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} />
-                  <Bar dataKey="contatos" fill="var(--color-chart-4)" radius={[0, 6, 6, 0]} />
+                  <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} wrapperStyle={{ zIndex: 50, outline: "none" }} allowEscapeViewBox={{ x: false, y: false }} />
+                  <Bar dataKey="contatos" radius={[0, 6, 6, 0]}>
+                    {escData.map((d, i) => (
+                      <Cell key={i} fill={d.fill} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -554,16 +539,16 @@ function Dashboard() {
 
           <ChartCard
             title="Ocupação (CBO)"
-            subtitle="Top 8 grandes grupos"
+            subtitle="Top 8 grandes grupos — volume de contatos"
             icon={<Briefcase className="h-4 w-4" />}
           >
-            <div className="h-[280px]">
+            <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={cboData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatNumber(v)} />
                   <YAxis dataKey="nome" type="category" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} width={130} />
-                  <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} />
+                  <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} wrapperStyle={{ zIndex: 50, outline: "none" }} allowEscapeViewBox={{ x: false, y: false }} />
                   <Bar dataKey="contatos" fill="var(--color-chart-3)" radius={[0, 6, 6, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -571,16 +556,75 @@ function Dashboard() {
           </ChartCard>
         </section>
 
-        {/* Row 4: Pirâmide + Top cidades */}
+        {/* Row 4 · Cobertura geográfica — DDD (painel regional) + top cidades */}
         <section className="grid gap-4 lg:grid-cols-2">
           <ChartCard
-            title="Pirâmide etária"
-            subtitle="Homens (esquerda) · Mulheres (direita)"
-            icon={<BarChart3 className="h-4 w-4" />}
+            title="Cobertura regional (DDD)"
+            subtitle="Onde estão os números — participação de cada região na base"
+            icon={<MapPin className="h-4 w-4" />}
+          >
+            <div className="flex flex-col justify-center gap-4 pt-1">
+              {dddData.map((r) => (
+                <div key={r.code}>
+                  <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <span
+                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg font-num text-xs font-bold text-white"
+                        style={{ background: r.fill }}
+                      >
+                        {r.code}
+                      </span>
+                      <span className="truncate font-medium">{r.label}</span>
+                    </span>
+                    <span className="shrink-0 font-num tabular-nums">
+                      <span className="font-semibold">{formatNumber(r.value)}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">{r.share.toFixed(1)}%</span>
+                    </span>
+                  </div>
+                  <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${Math.max(r.share, 1.5)}%`, background: r.fill }}
+                    />
+                  </div>
+                </div>
+              ))}
+              <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <MapPin className="h-3 w-3" />
+                RMR/PE = Região Metropolitana do Recife · participação sobre o total do recorte
+              </p>
+            </div>
+          </ChartCard>
+
+          <ChartCard
+            title="Top 10 cidades"
+            subtitle="Onde a base está concentrada"
+            icon={<Building2 className="h-4 w-4" />}
           >
             <div className="h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={piramideData} layout="vertical" stackOffset="sign" margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <BarChart data={cidadesData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatNumber(v)} />
+                  <YAxis dataKey="cidade" type="category" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} width={100} />
+                  <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} wrapperStyle={{ zIndex: 50, outline: "none" }} allowEscapeViewBox={{ x: false, y: false }} />
+                  <Bar dataKey="contatos" fill="var(--color-chart-2)" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </ChartCard>
+        </section>
+
+        {/* Row 5 · Pirâmide etária (largura total) */}
+        <section>
+          <ChartCard
+            title="Pirâmide etária"
+            subtitle="Distribuição por idade e sexo — Masculino (esquerda) · Feminino (direita)"
+            icon={<BarChart3 className="h-4 w-4" />}
+          >
+            <div className="h-[340px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={piramideData} layout="vertical" stackOffset="sign" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
                   <XAxis type="number" tickFormatter={(v) => formatNumber(Math.abs(v))} tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} />
                   <YAxis dataKey="faixa" type="category" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} width={55} />
@@ -601,28 +645,12 @@ function Dashboard() {
                       );
                     }}
                     cursor={{ fill: "var(--color-muted)", opacity: 0.5 }}
+                    wrapperStyle={{ zIndex: 50, outline: "none" }}
+                    allowEscapeViewBox={{ x: false, y: false }}
                   />
                   <Legend wrapperStyle={{ fontSize: 11, fontFamily: "var(--font-subtitle)" }} />
                   <Bar dataKey="Masculino" fill="var(--color-chart-2)" stackId="a" radius={[6, 0, 0, 6]} />
                   <Bar dataKey="Feminino" fill="var(--color-chart-1)" stackId="a" radius={[0, 6, 6, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </ChartCard>
-
-          <ChartCard
-            title="Top 10 cidades"
-            subtitle="Onde a base está concentrada"
-            icon={<Building2 className="h-4 w-4" />}
-          >
-            <div className="h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={cidadesData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatNumber(v)} />
-                  <YAxis dataKey="cidade" type="category" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} width={100} />
-                  <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} />
-                  <Bar dataKey="contatos" fill="var(--color-chart-5)" radius={[0, 6, 6, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -642,12 +670,8 @@ function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatNumber(v)} />
                   <YAxis dataKey="nome" type="category" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} width={220} />
-                  <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} />
-                  <Bar dataKey="contatos" fill="var(--color-chart-1)" radius={[0, 6, 6, 0]}>
-                    {clusterCompare.map((_, i) => (
-                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                    ))}
-                  </Bar>
+                  <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} wrapperStyle={{ zIndex: 50, outline: "none" }} allowEscapeViewBox={{ x: false, y: false }} />
+                  <Bar dataKey="contatos" fill="var(--color-primary)" radius={[0, 6, 6, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -737,11 +761,36 @@ function Dashboard() {
           </div>
         </section>
 
-        <footer className="pb-8 pt-4 text-center">
-          <p className="font-subtitle text-xs text-muted-foreground">
-            Fonte: {meta.fonte} · Extração {meta.extracao} ·{" "}
-            <span className="font-num">{formatNumber(meta.total_linhas)}</span> linhas totais na base
-          </p>
+        <footer className="print-card mt-2 rounded-2xl border bg-card p-6 shadow-sm">
+          <div className="flex flex-col items-center gap-5 text-center md:flex-row md:justify-between md:text-left">
+            {/* Assinatura ATONNS — responsável por base, segmentação, este painel e os disparos */}
+            <div className="flex flex-col items-center gap-3 md:flex-row md:items-center">
+              <div className="inline-flex items-center gap-2.5 rounded-xl bg-neutral-900 px-4 py-2.5 shadow-sm ring-1 ring-black/10">
+                <img
+                  src="/logo-atonns.png"
+                  alt="ATONNS Tecnologia e Comunicação"
+                  width={550}
+                  height={170}
+                  className="h-6 w-auto"
+                />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">
+                  ATONNS Tecnologia e Comunicação LTDA
+                </p>
+                <p className="font-subtitle text-xs text-muted-foreground">
+                  Base de dados · segmentação · painel · disparos ·{" "}
+                  <span className="font-num">CNPJ 24.016.351/0001-59</span>
+                </p>
+              </div>
+            </div>
+
+            <p className="font-subtitle max-w-sm text-xs text-muted-foreground">
+              Fonte: {meta.fonte} · Extração {meta.extracao} ·{" "}
+              <span className="font-num">{formatNumber(meta.total_linhas)}</span> linhas totais na
+              base
+            </p>
+          </div>
         </footer>
       </main>
     </div>

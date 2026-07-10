@@ -230,7 +230,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     }));
   }, [scope]);
 
-  // Classe — ordered A→E → sequential violet ramp
+  // Classe — ordered A→E → rampa violeta. Invertida: A (classe mais alta) recebe
+  // o tom mais forte/escuro, coerente com "quanto mais alto, mais escuro".
   const classeData = useMemo(() => {
     const ordered = toBuckets(scope.classe, meta.ordens.classe).filter(
       (b) => b.key !== "Não informado" && b.value > 0,
@@ -238,7 +239,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     return ordered.map((b, i) => ({
       name: b.key,
       value: b.value,
-      fill: rampFill("classe", i, ordered.length),
+      fill: rampFill("classe", ordered.length - 1 - i, ordered.length),
     }));
   }, [scope]);
 
@@ -290,10 +291,29 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     () =>
       scopes
         .filter((s) => s.tipo === "cluster")
-        .map((s) => ({ nome: s.rotulo.replace(/^..·\s*/, ""), contatos: s.contatos }))
+        .map((s) => ({
+          nome: s.rotulo.replace(/^..·\s*/, ""),
+          estado: s.rotulo.slice(0, 2), // PE | PB | AL
+          contatos: s.contatos,
+        }))
         .sort((a, b) => b.contatos - a.contatos),
     [],
   );
+
+  // Cada estado tem sua cor no comparativo de clusters (agrupa por região)
+  const estadoCor: Record<string, string> = {
+    PE: "var(--color-chart-1)", // Pernambuco
+    PB: "var(--color-chart-2)", // Paraíba
+    AL: "var(--color-chart-3)", // Alagoas
+  };
+  const estadosNoCompare = ["PE", "PB", "AL"].filter((uf) =>
+    clusterCompare.some((c) => c.estado === uf),
+  );
+  const estadoNome: Record<string, string> = {
+    PE: "Pernambuco",
+    PB: "Paraíba",
+    AL: "Alagoas",
+  };
 
   const lojasAusentes = useMemo(() => lojasSemRegistro(), []);
 
@@ -604,7 +624,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   <XAxis type="number" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatNumber(v)} />
                   <YAxis dataKey="cidade" type="category" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} width={100} />
                   <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} wrapperStyle={{ zIndex: 50, outline: "none" }} allowEscapeViewBox={{ x: false, y: false }} />
-                  <Bar dataKey="contatos" fill="var(--color-chart-2)" radius={[0, 6, 6, 0]} />
+                  <Bar dataKey="contatos" fill="var(--color-chart-6)" radius={[0, 6, 6, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -657,9 +677,21 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         <section>
           <ChartCard
             title="Comparativo entre clusters"
-            subtitle="Volume de telefones por cluster — priorize disparos"
+            subtitle="Volume de telefones por cluster · cor = estado — priorize os disparos"
             icon={<BarChart3 className="h-4 w-4" />}
           >
+            {/* Legenda de estados — a cor de cada barra indica a região */}
+            <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              {estadosNoCompare.map((uf) => (
+                <span
+                  key={uf}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
+                >
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: estadoCor[uf] }} />
+                  {estadoNome[uf]}
+                </span>
+              ))}
+            </div>
             <div className="h-[360px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={clusterCompare} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
@@ -667,7 +699,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   <XAxis type="number" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatNumber(v)} />
                   <YAxis dataKey="nome" type="category" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} width={220} />
                   <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} wrapperStyle={{ zIndex: 50, outline: "none" }} allowEscapeViewBox={{ x: false, y: false }} />
-                  <Bar dataKey="contatos" fill="var(--color-primary)" radius={[0, 6, 6, 0]} />
+                  <Bar dataKey="contatos" radius={[0, 6, 6, 0]}>
+                    {clusterCompare.map((d, i) => (
+                      <Cell key={i} fill={estadoCor[d.estado] ?? "var(--color-primary)"} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>

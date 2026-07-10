@@ -103,11 +103,11 @@ export function DonutChart({
               >
                 {d.name}
               </span>
-              <span className="flex items-baseline gap-2">
-                <span className="font-display text-sm font-bold tabular-nums text-foreground">
+              <span className="flex shrink-0 items-baseline justify-end gap-3">
+                <span className="w-[3.25rem] text-right font-display text-sm font-bold tabular-nums text-foreground">
                   {formatPercent(share)}
                 </span>
-                <span className="font-subtitle text-[11px] font-medium text-muted-foreground">
+                <span className="w-14 text-right font-subtitle text-[11px] font-medium tabular-nums text-muted-foreground">
                   {formatNumber(d.value)}
                 </span>
               </span>

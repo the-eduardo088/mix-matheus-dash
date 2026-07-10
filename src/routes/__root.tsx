@@ -7,10 +7,35 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { createServerOnlyFn } from "@tanstack/react-start";
+import { getRequestUrl } from "@tanstack/react-start/server";
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+
+/**
+ * Lê o host real do request no servidor (respeitando o proxy da Lovable/
+ * Cloudflare via x-forwarded-host). `createServerOnlyFn` faz o bundler remover
+ * este código do pacote do cliente.
+ */
+const getServerOrigin = createServerOnlyFn(() => {
+  try {
+    return new URL(getRequestUrl({ xForwardedHost: true })).origin;
+  } catch {
+    return "";
+  }
+});
+
+/**
+ * Origem absoluta do site (ex.: https://meudominio.com). Crawlers de preview
+ * (WhatsApp, Facebook, X) exigem URL absoluta em og:image — caminho relativo é
+ * ignorado. No cliente usamos window.location; no servidor, o host do request.
+ */
+function siteOrigin(): string {
+  if (typeof window !== "undefined") return window.location.origin;
+  return getServerOrigin();
+}
 
 function NotFoundComponent() {
   return (
@@ -73,56 +98,65 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Mix Mateus · Painel da Base para Campanhas de WhatsApp" },
-      {
-        name: "description",
-        content:
-          "Painel analítico restrito da base Mix Mateus: telefones, operadoras, clusters, perfil demográfico e cobertura regional. Base, segmentação e disparos por ATONNS Tecnologia.",
-      },
-      { name: "theme-color", content: "#e01e1e" },
-      { name: "robots", content: "noindex, nofollow" },
-      { property: "og:site_name", content: "Mix Mateus · ATONNS" },
-      { property: "og:title", content: "Mix Mateus · Painel da Base para Campanhas" },
-      {
-        property: "og:description",
-        content:
-          "Análise da base de telefones e perfis para campanhas de WhatsApp. Segmentação e disparos por ATONNS Tecnologia e Comunicação.",
-      },
-      { property: "og:type", content: "website" },
-      { property: "og:image", content: "/logo-mix.png" },
-      { property: "og:image:width", content: "1000" },
-      { property: "og:image:height", content: "313" },
-      { property: "og:image:alt", content: "Mix Mateus" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Mix Mateus · Painel da Base para Campanhas" },
-      {
-        name: "twitter:description",
-        content: "Análise da base para campanhas de WhatsApp. Por ATONNS Tecnologia e Comunicação.",
-      },
-      { name: "twitter:image", content: "/logo-mix.png" },
-    ],
-    links: [
-      { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/logo-mix.png", type: "image/png" },
-      { rel: "shortcut icon", href: "/logo-mix.png", type: "image/png" },
-      { rel: "apple-touch-icon", href: "/logo-mix.png" },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap",
-      },
-    ],
-    scripts: [
-      {
-        children: `(function(){try{var m=window.matchMedia('(prefers-color-scheme: dark)');function a(e){document.documentElement.classList.toggle('dark', e.matches);}a(m);m.addEventListener('change',a);}catch(e){}})();`,
-      },
-    ],
-  }),
+  head: () => {
+    const origin = siteOrigin();
+    // Absoluta quando há origin (SSR/cliente); relativa só em último caso.
+    const ogImage = origin ? `${origin}/logo-mix.png` : "/logo-mix.png";
+    return {
+      meta: [
+        { charSet: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1" },
+        { title: "Mix Mateus · Painel da Base para Campanhas de WhatsApp" },
+        {
+          name: "description",
+          content:
+            "Painel analítico restrito da base Mix Mateus: telefones, operadoras, clusters, perfil demográfico e cobertura regional. Base, segmentação e disparos por ATONNS Tecnologia.",
+        },
+        { name: "theme-color", content: "#e01e1e" },
+        { name: "robots", content: "noindex, nofollow" },
+        { property: "og:site_name", content: "Mix Mateus · ATONNS" },
+        { property: "og:title", content: "Mix Mateus · Painel da Base para Campanhas" },
+        {
+          property: "og:description",
+          content:
+            "Análise da base de telefones e perfis para campanhas de WhatsApp. Segmentação e disparos por ATONNS Tecnologia e Comunicação.",
+        },
+        { property: "og:type", content: "website" },
+        ...(origin ? [{ property: "og:url", content: origin }] : []),
+        { property: "og:image", content: ogImage },
+        { property: "og:image:secure_url", content: ogImage },
+        { property: "og:image:type", content: "image/png" },
+        { property: "og:image:width", content: "1000" },
+        { property: "og:image:height", content: "313" },
+        { property: "og:image:alt", content: "Mix Mateus" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: "Mix Mateus · Painel da Base para Campanhas" },
+        {
+          name: "twitter:description",
+          content:
+            "Análise da base para campanhas de WhatsApp. Por ATONNS Tecnologia e Comunicação.",
+        },
+        { name: "twitter:image", content: ogImage },
+      ],
+      links: [
+        { rel: "stylesheet", href: appCss },
+        { rel: "icon", href: "/logo-mix.png", type: "image/png" },
+        { rel: "shortcut icon", href: "/logo-mix.png", type: "image/png" },
+        { rel: "apple-touch-icon", href: "/logo-mix.png" },
+        { rel: "preconnect", href: "https://fonts.googleapis.com" },
+        { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+        {
+          rel: "stylesheet",
+          href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap",
+        },
+      ],
+      scripts: [
+        {
+          children: `(function(){try{var m=window.matchMedia('(prefers-color-scheme: dark)');function a(e){document.documentElement.classList.toggle('dark', e.matches);}a(m);m.addEventListener('change',a);}catch(e){}})();`,
+        },
+      ],
+    };
+  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,

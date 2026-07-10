@@ -34,7 +34,6 @@ export function DonutChart({
 
   const focus = active != null ? data[active] : null;
   const centerValue = focus ? focus.value : total;
-  const centerText = focus ? focus.name : centerLabel;
   const centerPct =
     focus && total
       ? ((focus.value / total) * 100).toFixed(focus.value / total < 0.01 ? 1 : 0)
@@ -69,17 +68,24 @@ export function DonutChart({
             </Pie>
           </PieChart>
         </ResponsiveContainer>
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
+        {/* Leitor central: só números (sempre cabem no miolo). O NOME da fatia
+            aparece realçado na legenda abaixo — evita texto longo, tipo
+            "Vivo (Telefônica)", vazando por cima do gráfico. */}
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 text-center">
           <span className="font-num font-display text-2xl font-bold leading-none tracking-tight text-foreground">
             {formatNumber(centerValue)}
           </span>
-          {centerText && (
-            <span
-              className="font-subtitle mt-1 max-w-full truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
-              title={centerText}
-            >
-              {centerPct ? `${centerText} · ${centerPct}%` : centerText}
+          {focus ? (
+            <span className="inline-flex items-center gap-1.5 font-num text-xs font-semibold text-foreground">
+              <span className="h-2 w-2 rounded-full" style={{ background: focus.fill }} />
+              {centerPct}%
             </span>
+          ) : (
+            centerLabel && (
+              <span className="font-subtitle text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                {centerLabel}
+              </span>
+            )
           )}
         </div>
       </div>
@@ -98,7 +104,11 @@ export function DonutChart({
               }`}
             >
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: d.fill }} />
-              <span className="truncate text-muted-foreground">{d.name}</span>
+              <span
+                className={`truncate ${active === i ? "font-semibold text-foreground" : "text-muted-foreground"}`}
+              >
+                {d.name}
+              </span>
               <span className="font-num tabular-nums">
                 <span className="font-semibold text-foreground">
                   {share.toFixed(share < 1 ? 1 : 0)}%

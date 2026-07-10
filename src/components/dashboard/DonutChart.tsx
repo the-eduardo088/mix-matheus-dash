@@ -109,11 +109,15 @@ export function DonutChart({
               >
                 {d.name}
               </span>
-              <span className="font-num tabular-nums">
-                <span className="font-semibold text-foreground">
+              {/* Hierarquia: % é o dado-chave (grande, forte); o total absoluto é
+                  detalhe de apoio (menor, leve) — não competem pela leitura. */}
+              <span className="flex items-baseline gap-2 font-num tabular-nums">
+                <span className="text-sm font-bold text-foreground">
                   {share.toFixed(share < 1 ? 1 : 0)}%
                 </span>
-                <span className="ml-2 text-muted-foreground">{formatNumber(d.value)}</span>
+                <span className="text-[10px] font-medium text-muted-foreground">
+                  {formatNumber(d.value)}
+                </span>
               </span>
             </li>
           );

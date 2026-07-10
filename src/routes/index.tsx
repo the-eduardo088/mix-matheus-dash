@@ -393,7 +393,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             value={formatNumber(totalContatos)}
             hint={<span>Linhas prontas para disparo · métrica principal</span>}
             icon={<MessageCircle className="h-5 w-5" />}
-            accent="muted"
+            accent="success"
           />
           <StatCard
             label="Pessoas únicas"
@@ -408,7 +408,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               </span>
             }
             icon={<Users className="h-5 w-5" />}
-            accent="muted"
+            accent="violet"
           />
           <StatCard
             label="Renda média"
@@ -431,7 +431,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             }
             hint={<span>Mediana {scope.idade?.mediana ?? "—"} anos</span>}
             icon={<Signal className="h-5 w-5" />}
-            accent="success"
+            accent="amber"
           />
         </section>
 

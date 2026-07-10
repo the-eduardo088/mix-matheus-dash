@@ -16,7 +16,6 @@ import {
   Users,
   Signal,
   MapPin,
-  PieChart as PieIcon,
   BarChart3,
   Building2,
   GraduationCap,
@@ -27,6 +26,7 @@ import {
   Moon,
   Laptop,
   LogOut,
+  Layers,
 } from "lucide-react";
 import { createFileRoute } from "@tanstack/react-router";
 
@@ -455,8 +455,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           />
         </section>
 
-        {/* Row 1 · Perfil da base — três donuts consistentes (proporções) */}
-        <section className="grid gap-4 lg:grid-cols-3">
+        {/* Row 1 · Perfil da base — proporções do todo (categórico → rosca) */}
+        <section className="grid gap-4 lg:grid-cols-2">
           <ChartCard
             title="Operadora dos telefones"
             subtitle="Distribuição por prestadora — planeje disparo por operadora"
@@ -471,14 +471,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             icon={<Users className="h-4 w-4" />}
           >
             <DonutChart data={sexoData} centerLabel="contatos" />
-          </ChartCard>
-
-          <ChartCard
-            title="Classe social"
-            subtitle="Segmentação por classe (A → E)"
-            icon={<PieIcon className="h-4 w-4" />}
-          >
-            <DonutChart data={classeData} centerLabel="com classe" />
           </ChartCard>
         </section>
 
@@ -529,8 +521,30 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           </ChartCard>
         </section>
 
-        {/* Row 3 · Escolaridade & ocupação */}
+        {/* Row 3 · Perfil socioeconômico — dimensões ordenadas (barra = ordem no eixo) */}
         <section className="grid gap-4 lg:grid-cols-2">
+          <ChartCard
+            title="Classe social"
+            subtitle="Participação por classe (A → E) · tom = nível (A mais forte)"
+            icon={<Layers className="h-4 w-4" />}
+          >
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={classeData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatNumber(v)} />
+                  <YAxis dataKey="name" type="category" tick={{ fontSize: 12, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} width={36} />
+                  <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} wrapperStyle={{ zIndex: 50, outline: "none" }} allowEscapeViewBox={{ x: false, y: false }} />
+                  <Bar dataKey="value" radius={[0, 6, 6, 0]}>
+                    {classeData.map((d, i) => (
+                      <Cell key={i} fill={d.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </ChartCard>
+
           <ChartCard
             title="Escolaridade"
             subtitle="Nível informado · tom da cor = grau (baixo → alto)"
@@ -552,7 +566,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               </ResponsiveContainer>
             </div>
           </ChartCard>
+        </section>
 
+        {/* Row 3b · Ocupação (CBO) — largura total */}
+        <section>
           <ChartCard
             title="Ocupação (CBO)"
             subtitle="Top 8 grandes grupos — volume de contatos"
@@ -560,10 +577,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           >
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={cboData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                <BarChart data={cboData} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatNumber(v)} />
-                  <YAxis dataKey="nome" type="category" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} width={130} />
+                  <YAxis dataKey="nome" type="category" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} width={170} />
                   <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} wrapperStyle={{ zIndex: 50, outline: "none" }} allowEscapeViewBox={{ x: false, y: false }} />
                   <Bar dataKey="contatos" fill="var(--color-chart-3)" radius={[0, 6, 6, 0]} />
                 </BarChart>
@@ -592,9 +609,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                       </span>
                       <span className="truncate font-medium">{r.label}</span>
                     </span>
-                    <span className="shrink-0 font-num tabular-nums">
-                      <span className="font-semibold">{formatNumber(r.value)}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">{r.share.toFixed(1)}%</span>
+                    <span className="flex shrink-0 items-baseline gap-2">
+                      <span className="font-num text-sm font-bold tabular-nums text-foreground">
+                        {formatNumber(r.value)}
+                      </span>
+                      <span className="font-subtitle text-[11px] font-medium text-muted-foreground">
+                        {r.share.toFixed(1)}%
+                      </span>
                     </span>
                   </div>
                   <div className="h-2.5 overflow-hidden rounded-full bg-muted">

@@ -109,13 +109,14 @@ export function DonutChart({
               >
                 {d.name}
               </span>
-              {/* Hierarquia: % é o dado-chave (grande, forte); o total absoluto é
-                  detalhe de apoio (menor, leve) — não competem pela leitura. */}
-              <span className="flex items-baseline gap-2 font-num tabular-nums">
-                <span className="text-sm font-bold text-foreground">
+              {/* Separação tipográfica real: o % é o dado-chave em fonte MONO
+                  (grande, forte); o total absoluto é apoio, em fonte de texto
+                  (sans) menor e leve — fontes diferentes, não só cor/tamanho. */}
+              <span className="flex items-baseline gap-2">
+                <span className="font-num text-sm font-bold tabular-nums text-foreground">
                   {share.toFixed(share < 1 ? 1 : 0)}%
                 </span>
-                <span className="text-[10px] font-medium text-muted-foreground">
+                <span className="font-subtitle text-[11px] font-medium text-muted-foreground">
                   {formatNumber(d.value)}
                 </span>
               </span>

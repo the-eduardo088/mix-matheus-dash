@@ -165,8 +165,8 @@ export const REGION_COLORS = [
 ];
 
 export const SEXO_COLORS: Record<string, string> = {
-  Feminino: "var(--color-chart-1)",
-  Masculino: "var(--color-chart-2)",
+  Feminino: "var(--sexo-feminino)", // rosa
+  Masculino: "var(--sexo-masculino)", // azul escuro
   "Não informado": "var(--color-muted-foreground)",
 };
 

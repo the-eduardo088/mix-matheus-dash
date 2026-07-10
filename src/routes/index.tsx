@@ -354,10 +354,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               <h2 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">
                 {scope.rotulo}
               </h2>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                Foco em <strong className="font-semibold text-foreground">contatos (telefones)</strong> —
-                o volume real disponível para disparos. Pessoas únicas ficam apenas como referência.
-              </p>
             </div>
             <div className="min-w-0">
               <label className="font-subtitle mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -397,7 +393,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             value={formatNumber(totalContatos)}
             hint={<span>Linhas prontas para disparo · métrica principal</span>}
             icon={<MessageCircle className="h-5 w-5" />}
-            accent="primary"
+            accent="muted"
           />
           <StatCard
             label="Pessoas únicas"
@@ -649,8 +645,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     allowEscapeViewBox={{ x: false, y: false }}
                   />
                   <Legend wrapperStyle={{ fontSize: 11, fontFamily: "var(--font-subtitle)" }} />
-                  <Bar dataKey="Masculino" fill="var(--color-chart-2)" stackId="a" radius={[6, 0, 0, 6]} />
-                  <Bar dataKey="Feminino" fill="var(--color-chart-1)" stackId="a" radius={[0, 6, 6, 0]} />
+                  <Bar dataKey="Masculino" fill="var(--sexo-masculino)" stackId="a" radius={[6, 0, 0, 6]} />
+                  <Bar dataKey="Feminino" fill="var(--sexo-feminino)" stackId="a" radius={[0, 6, 6, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

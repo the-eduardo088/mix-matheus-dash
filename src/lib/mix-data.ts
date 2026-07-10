@@ -74,7 +74,10 @@ export function getScope(id: string): Scope {
 }
 
 export function toBuckets(map: Record<string, number>, order?: string[]): DimBucket[] {
-  const entries = Object.entries(map ?? {}).map(([key, value]) => ({ key, value: Number(value) || 0 }));
+  const entries = Object.entries(map ?? {}).map(([key, value]) => ({
+    key,
+    value: Number(value) || 0,
+  }));
   if (order) {
     entries.sort((a, b) => {
       const ia = order.indexOf(a.key);
@@ -91,12 +94,21 @@ export function toBuckets(map: Record<string, number>, order?: string[]): DimBuc
 }
 
 /** Lojas ausentes: registradas no meta OU sem qualquer contato na base */
-export function lojasSemRegistro(): { codigo: string; nome: string; cep?: string; motivo: string }[] {
+export function lojasSemRegistro(): {
+  codigo: string;
+  nome: string;
+  cep?: string;
+  motivo: string;
+}[] {
   const fromMeta = (meta.notas.match(/Lojas sem registro:\s*([^.]+)/)?.[1] ?? "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean)
-    .map((n) => ({ codigo: n.split("-")[0], nome: n, motivo: "Sem registro na base (CEP não encontrado)" }));
+    .map((n) => ({
+      codigo: n.split("-")[0],
+      nome: n,
+      motivo: "Sem registro na base (CEP não encontrado)",
+    }));
 
   const zeradas: { codigo: string; nome: string; cep?: string; motivo: string }[] = [];
   for (const c of clusterScopes) {
@@ -188,7 +200,22 @@ export function formatNumber(n: number | null | undefined): string {
   return new Intl.NumberFormat("pt-BR").format(Math.round(n));
 }
 
+/**
+ * Percentual legível (pt-BR). Evita a contradição "0,0% com 10 contatos":
+ * valores > 0 que arredondam para zero viram "<0,1%".
+ */
+export function formatPercent(v: number | null | undefined): string {
+  if (v == null || !Number.isFinite(v) || v <= 0) return "0%";
+  if (v < 0.1) return "<0,1%";
+  if (v < 1) return v.toFixed(1).replace(".", ",") + "%";
+  return Math.round(v) + "%";
+}
+
 export function formatCurrency(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return "—";
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  }).format(n);
 }

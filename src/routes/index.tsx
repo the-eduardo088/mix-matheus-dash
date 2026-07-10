@@ -39,6 +39,7 @@ import {
   SEXO_COLORS,
   formatCurrency,
   formatNumber,
+  formatPercent,
   getScope,
   lojasSemRegistro,
   meta,
@@ -610,11 +611,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                       <span className="truncate font-medium">{r.label}</span>
                     </span>
                     <span className="flex shrink-0 items-baseline gap-2">
-                      <span className="font-num text-sm font-bold tabular-nums text-foreground">
+                      <span className="font-display text-sm font-bold tabular-nums text-foreground">
                         {formatNumber(r.value)}
                       </span>
                       <span className="font-subtitle text-[11px] font-medium text-muted-foreground">
-                        {r.share.toFixed(1)}%
+                        {formatPercent(r.share)}
                       </span>
                     </span>
                   </div>

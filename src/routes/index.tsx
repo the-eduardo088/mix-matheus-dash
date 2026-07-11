@@ -274,11 +274,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     }));
   }, [scope]);
 
-  const cidadesData = useMemo(
-    () => (scope.cidades ?? []).map(([nome, v]) => ({ cidade: nome, contatos: v })),
-    [scope],
-  );
-
   const piramideData = useMemo(() => {
     const rows = Object.entries(scope.piramide ?? {}).map(([faixa, v]) => ({
       faixa,
@@ -591,8 +586,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           </ChartCard>
         </section>
 
-        {/* Row 4 · Cobertura geográfica — DDD (painel regional) + top cidades */}
-        <section className="grid gap-4 lg:grid-cols-2">
+        {/* Row 4 · Cobertura regional (DDD) — largura total */}
+        <section>
           <ChartCard
             title="Cobertura regional (DDD)"
             subtitle="Onde estão os números — participação de cada região na base"
@@ -632,24 +627,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 <MapPin className="h-3 w-3" />
                 RMR/PE = Região Metropolitana do Recife · participação sobre o total do recorte
               </p>
-            </div>
-          </ChartCard>
-
-          <ChartCard
-            title="Top 10 cidades"
-            subtitle="Onde a base está concentrada"
-            icon={<Building2 className="h-4 w-4" />}
-          >
-            <div className="h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={cidadesData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatCompact(v)} />
-                  <YAxis dataKey="cidade" type="category" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} width={100} />
-                  <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} wrapperStyle={{ zIndex: 50, outline: "none" }} allowEscapeViewBox={{ x: false, y: false }} />
-                  <Bar dataKey="contatos" fill="var(--color-chart-6)" radius={[0, 6, 6, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
             </div>
           </ChartCard>
         </section>

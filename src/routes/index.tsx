@@ -20,7 +20,6 @@ import {
   GraduationCap,
   Briefcase,
   Wallet,
-  AlertTriangle,
   Sun,
   Moon,
   Laptop,
@@ -40,7 +39,6 @@ import {
   formatNumber,
   formatPercent,
   getScope,
-  lojasSemRegistro,
   meta,
   pct,
   rampFill,
@@ -266,7 +264,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     return rows;
   }, [scope]);
 
-  const lojasAusentes = useMemo(() => lojasSemRegistro(), []);
 
   const lojasScope = useMemo(() => {
     if (scope.tipo !== "cluster" || !scope.lojas) return [];
@@ -625,45 +622,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             </ChartCard>
           </section>
         )}
-
-        {/* Row 7: Lojas / CEPs não encontrados */}
-        <section>
-          <div className="rounded-2xl border border-[color:var(--warning)]/40 bg-[color:var(--warning)]/5 p-5 shadow-sm sm:p-6">
-            <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4">
-              <div className="rounded-xl bg-[color:var(--warning)]/15 p-2.5 text-[color:var(--warning)]">
-                <AlertTriangle className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="font-display text-lg font-bold tracking-tight">
-                  Lojas / CEPs não encontrados na base
-                </h3>
-                <p className="font-subtitle mt-1 text-sm text-muted-foreground">
-                  Estas lojas foram enviadas pelo Mix Mateus mas não retornaram registros no cruzamento
-                  por CEP — precisam de revisão de cadastro ou reenvio de base.
-                </p>
-
-                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {lojasAusentes.map((l) => (
-                    <div
-                      key={`${l.codigo}-${l.nome}`}
-                      className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border bg-card p-3"
-                    >
-                      <span className="shrink-0 rounded-lg bg-primary/10 px-2 py-1 font-num text-xs font-bold text-primary">
-                        #{l.codigo}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold">{l.nome}</p>
-                        <p className="font-num text-[11px] text-muted-foreground">
-                          CEP {l.cep ?? "—"} · {l.motivo}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
 
         <footer className="print-card mt-2 rounded-2xl border bg-card p-6 shadow-sm">
           <div className="flex flex-col items-center gap-5 text-center md:flex-row md:justify-between md:text-left">

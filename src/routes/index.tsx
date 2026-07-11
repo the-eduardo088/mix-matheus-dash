@@ -15,7 +15,6 @@ import {
   MessageCircle,
   Users,
   Signal,
-  MapPin,
   BarChart3,
   Building2,
   GraduationCap,
@@ -35,7 +34,6 @@ import { LoginScreen } from "@/components/auth/LoginScreen";
 import {
   NA_FILL,
   PRESTADORA_COLORS,
-  REGION_COLORS,
   SEXO_COLORS,
   formatCompact,
   formatCurrency,
@@ -194,22 +192,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     [scope],
   );
 
-  // DDD — regional coverage; distinct region hues + share of the base
-  const dddData = useMemo(() => {
-    const buckets = toBuckets(scope.ddd);
-    const total = buckets.reduce((s, b) => s + b.value, 0);
-    return buckets.map((b, i) => {
-      const [code, ...rest] = b.key.split(" · ");
-      return {
-        code,
-        label: rest.join(" · ") || b.key,
-        value: b.value,
-        share: total ? (b.value / total) * 100 : 0,
-        fill: REGION_COLORS[i % REGION_COLORS.length],
-      };
-    });
-  }, [scope]);
-
   // Faixa etária — ordered dimension → sequential amber ramp (light = novo, escuro = idoso)
   const idadeData = useMemo(() => {
     const buckets = toBuckets(scope.idade_g, meta.ordens.idade_g);
@@ -283,34 +265,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     rows.sort((a, b) => a.faixa.localeCompare(b.faixa));
     return rows;
   }, [scope]);
-
-  const clusterCompare = useMemo(
-    () =>
-      scopes
-        .filter((s) => s.tipo === "cluster")
-        .map((s) => ({
-          nome: s.rotulo.replace(/^..·\s*/, ""),
-          estado: s.rotulo.slice(0, 2), // PE | PB | AL
-          contatos: s.contatos,
-        }))
-        .sort((a, b) => b.contatos - a.contatos),
-    [],
-  );
-
-  // Cada estado tem sua cor no comparativo de clusters (agrupa por região)
-  const estadoCor: Record<string, string> = {
-    PE: "var(--color-chart-1)", // Pernambuco
-    PB: "var(--color-chart-2)", // Paraíba
-    AL: "var(--color-chart-3)", // Alagoas
-  };
-  const estadosNoCompare = ["PE", "PB", "AL"].filter((uf) =>
-    clusterCompare.some((c) => c.estado === uf),
-  );
-  const estadoNome: Record<string, string> = {
-    PE: "Pernambuco",
-    PB: "Paraíba",
-    AL: "Alagoas",
-  };
 
   const lojasAusentes = useMemo(() => lojasSemRegistro(), []);
 
@@ -586,51 +540,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           </ChartCard>
         </section>
 
-        {/* Row 4 · Cobertura regional (DDD) — largura total */}
-        <section>
-          <ChartCard
-            title="Cobertura regional (DDD)"
-            subtitle="Onde estão os números — participação de cada região na base"
-            icon={<MapPin className="h-4 w-4" />}
-          >
-            <div className="flex flex-col justify-center gap-4 pt-1">
-              {dddData.map((r) => (
-                <div key={r.code}>
-                  <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
-                    <span className="flex min-w-0 items-center gap-2.5">
-                      <span
-                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg font-num text-xs font-bold text-white"
-                        style={{ background: r.fill }}
-                      >
-                        {r.code}
-                      </span>
-                      <span className="truncate font-medium">{r.label}</span>
-                    </span>
-                    <span className="flex shrink-0 items-baseline gap-2">
-                      <span className="font-display text-sm font-bold tabular-nums text-foreground">
-                        {formatNumber(r.value)}
-                      </span>
-                      <span className="font-subtitle text-[11px] font-medium text-muted-foreground">
-                        {formatPercent(r.share)}
-                      </span>
-                    </span>
-                  </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{ width: `${Math.max(r.share, 1.5)}%`, background: r.fill }}
-                    />
-                  </div>
-                </div>
-              ))}
-              <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <MapPin className="h-3 w-3" />
-                RMR/PE = Região Metropolitana do Recife · participação sobre o total do recorte
-              </p>
-            </div>
-          </ChartCard>
-        </section>
-
         {/* Row 5 · Pirâmide etária (largura total) */}
         <section>
           <ChartCard
@@ -667,43 +576,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   <Legend wrapperStyle={{ fontSize: 11, fontFamily: "var(--font-subtitle)" }} />
                   <Bar dataKey="Masculino" fill="var(--sexo-masculino)" stackId="a" radius={[6, 0, 0, 6]} />
                   <Bar dataKey="Feminino" fill="var(--sexo-feminino)" stackId="a" radius={[0, 6, 6, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </ChartCard>
-        </section>
-
-        {/* Row 5: Comparativo entre clusters (sempre visível) */}
-        <section>
-          <ChartCard
-            title="Comparativo entre clusters"
-            subtitle="Volume de telefones por cluster · cor = estado — priorize os disparos"
-            icon={<BarChart3 className="h-4 w-4" />}
-          >
-            {/* Legenda de estados — a cor de cada barra indica a região */}
-            <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-              {estadosNoCompare.map((uf) => (
-                <span
-                  key={uf}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
-                >
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: estadoCor[uf] }} />
-                  {estadoNome[uf]}
-                </span>
-              ))}
-            </div>
-            <div className="h-[360px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={clusterCompare} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatCompact(v)} />
-                  <YAxis dataKey="nome" type="category" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} width={220} />
-                  <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--color-muted)", opacity: 0.5 }} wrapperStyle={{ zIndex: 50, outline: "none" }} allowEscapeViewBox={{ x: false, y: false }} />
-                  <Bar dataKey="contatos" radius={[0, 6, 6, 0]}>
-                    {clusterCompare.map((d, i) => (
-                      <Cell key={i} fill={estadoCor[d.estado] ?? "var(--color-primary)"} />
-                    ))}
-                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>

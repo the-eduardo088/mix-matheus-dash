@@ -201,6 +201,24 @@ export function formatNumber(n: number | null | undefined): string {
 }
 
 /**
+ * Número compacto para eixos (evita rótulos gigantes tipo "600.000").
+ * Ex.: 600000 → "600 mil" · 1660526 → "1,7 mi" · 900 → "900".
+ */
+export function formatCompact(n: number | null | undefined): string {
+  if (n == null || Number.isNaN(n)) return "—";
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) {
+    const v = n / 1_000_000;
+    return (Number.isInteger(v) ? String(v) : v.toFixed(1).replace(".", ",")) + " mi";
+  }
+  if (abs >= 1_000) {
+    const v = n / 1_000;
+    return (Number.isInteger(v) ? String(v) : v.toFixed(0)) + " mil";
+  }
+  return String(Math.round(n));
+}
+
+/**
  * Percentual legível (pt-BR). Evita a contradição "0,0% com 10 contatos":
  * valores > 0 que arredondam para zero viram "<0,1%".
  */

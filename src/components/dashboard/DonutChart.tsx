@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Sector } from "recharts";
 
-import { formatNumber, formatPercent } from "@/lib/mix-data";
+import { formatCompact, formatNumber, formatPercent } from "@/lib/mix-data";
 
 export type DonutDatum = { name: string; value: number; fill: string };
 
@@ -66,8 +66,11 @@ export function DonutChart({
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 text-center">
-          <span className="font-display text-2xl font-bold leading-none tracking-tight tabular-nums text-foreground">
-            {formatNumber(centerValue)}
+          <span
+            className="font-display text-2xl font-bold leading-none tracking-tight tabular-nums text-foreground"
+            title={formatNumber(centerValue)}
+          >
+            {formatCompact(centerValue)}
           </span>
           {focus ? (
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground">

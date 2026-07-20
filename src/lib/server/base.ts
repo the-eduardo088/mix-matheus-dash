@@ -51,8 +51,31 @@ export function getIndice(): IndiceBase {
     tipo: s.tipo,
     contatos: s.contatos,
     pessoas: s.pessoas,
+    cidades: cidadesDe(s),
   }));
   return { meta: data.meta, recortes };
+}
+
+/**
+ * Nomes de cidade de um recorte, para sugerir no formulário.
+ *
+ * Só o NOME sai daqui — de propósito. Os totais por cidade na base são
+ * projetados, não contados: a mesma cidade aparece com valores diferentes em
+ * recortes aninhados (Goiana = 173.858 na base completa, mas 277.788 no
+ * cluster PE-C01, que está dentro dela), com razão constante entre cidades
+ * distintas. Exibir esse número daria falsa precisão; a segmentação por
+ * cidade é feita pela ATONNS no disparo.
+ *
+ * A lista é sugestão, não restrição: o campo aceita qualquer cidade digitada,
+ * já que estes são apenas os 10 maiores de cada recorte.
+ *
+ * "Nao Identificado" é descartado: é o balde de CEP sem cidade resolvida.
+ */
+function cidadesDe(s: Scope): string[] {
+  return (s.cidades ?? [])
+    .filter(([nome]) => nome && nome.toLowerCase() !== "nao identificado")
+    .sort((a, b) => b[1] - a[1])
+    .map(([nome]) => nome);
 }
 
 /** Um recorte completo. `null` se o id não existir. */

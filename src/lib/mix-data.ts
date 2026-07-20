@@ -50,6 +50,11 @@ export type RecorteResumo = {
   tipo: Scope["tipo"];
   contatos: number;
   pessoas: number;
+  /**
+   * Nomes das maiores cidades do recorte — sugestão para o formulário, sem
+   * volume. Ver `cidadesDe` em server/base.ts para o porquê de não haver número.
+   */
+  cidades: string[];
 };
 
 export type MetaBase = {

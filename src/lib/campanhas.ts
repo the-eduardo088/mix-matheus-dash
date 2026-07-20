@@ -185,6 +185,14 @@ export const listarCampanhas = createServerFn({ method: "GET" }).handler(
 const entradaCampanha = z.object({
   nome: z.string().trim().min(1).max(200),
   scopeId: z.string().min(1),
+  cidade: z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .nullable()
+    .optional()
+    .transform((v) => v ?? null),
   copy: z.string().trim().min(1).max(COPY_MAX_CHARS),
   midiaId: z.string().uuid().nullable(),
   agendadaPara: z.string().min(1),

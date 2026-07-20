@@ -7,6 +7,7 @@ import {
   Eye,
   Inbox,
   Info,
+  MapPin,
   MessageSquare,
   PlugZap,
   Send,
@@ -155,8 +156,14 @@ function CampanhaCard({
               {STATUS_ROTULO[c.status]}
             </span>
           </div>
-          <p className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span>{c.scopeRotulo}</span>
+            {c.cidade && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
+                <MapPin className="h-3 w-3" />
+                {c.cidade}
+              </span>
+            )}
             {/* O admin vê campanha de várias pessoas — precisa saber de quem é */}
             {sessao.papel === "admin" && (
               <span className="inline-flex items-center gap-1">
@@ -205,20 +212,31 @@ function CampanhaCard({
               </span>
               {!encerrada && <span>· {distanciaAte(c.agendadaPara)}</span>}
             </span>
-            <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-              <Send className="h-3.5 w-3.5" />
-              <span className="font-num font-medium text-foreground">
-                {formatNumber(c.alcanceContatos)}
+            {c.alcanceADefinir ? (
+              // Campanha por cidade: o volume só existe depois da segmentação.
+              // Mostrar 0 aqui afirmaria que ela não alcança ninguém.
+              <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                <Send className="h-3.5 w-3.5" />
+                Alcance a definir na segmentação
               </span>
-              telefones
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-              <Users className="h-3.5 w-3.5" />
-              <span className="font-num font-medium text-foreground">
-                {formatNumber(c.alcancePessoas)}
-              </span>
-              pessoas
-            </span>
+            ) : (
+              <>
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  <Send className="h-3.5 w-3.5" />
+                  <span className="font-num font-medium text-foreground">
+                    {formatNumber(c.alcanceContatos)}
+                  </span>
+                  telefones
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  <Users className="h-3.5 w-3.5" />
+                  <span className="font-num font-medium text-foreground">
+                    {formatNumber(c.alcancePessoas)}
+                  </span>
+                  pessoas
+                </span>
+              </>
+            )}
           </div>
 
           <p className="whitespace-pre-wrap break-words rounded-xl bg-muted/50 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
@@ -316,6 +334,7 @@ function Relatorios({ sessao }: { sessao: Sessao }) {
   const lista = campanhas ?? [];
   const ativas = lista.filter((c) => c.status !== "cancelada" && c.status !== "recusada");
   const alcanceTotal = ativas.reduce((s, c) => s + c.alcanceContatos, 0);
+  const semAlcance = ativas.filter((c) => c.alcanceADefinir).length;
   const pendentes = lista.filter((c) => c.status === "aguardando_aprovacao").length;
   const comRelatorio = lista.filter((c) => c.relatorio).length;
 
@@ -378,7 +397,15 @@ function Relatorios({ sessao }: { sessao: Sessao }) {
           <StatCard
             label="Alcance planejado"
             value={formatNumber(alcanceTotal)}
-            hint={<span>Telefones das bases selecionadas</span>}
+            hint={
+              semAlcance > 0 ? (
+                <span>
+                  Fora {semAlcance} campanha(s) por cidade, cujo volume sai na segmentação
+                </span>
+              ) : (
+                <span>Telefones das bases selecionadas</span>
+              )
+            }
             icon={<Send className="h-5 w-5" />}
             accent="success"
           />

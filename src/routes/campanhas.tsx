@@ -133,6 +133,7 @@ function FormularioCampanha({ indice }: { indice: IndiceBase }) {
 
   const [nome, setNome] = useState("");
   const [scopeId, setScopeId] = useState("");
+  const [cidade, setCidade] = useState("");
   const [copy, setCopy] = useState("");
   const [midia, setMidia] = useState<MidiaCampanha | null>(null);
   const [enviandoArquivo, setEnviandoArquivo] = useState(false);
@@ -197,6 +198,7 @@ function FormularioCampanha({ indice }: { indice: IndiceBase }) {
     const entrada = {
       nome: nome.trim(),
       scopeId,
+      cidade: cidade.trim() || null,
       copy: copy.trim(),
       midiaId: midia?.id ?? null,
       // datetime-local devolve horário local sem fuso; o Date interpreta como
@@ -224,6 +226,7 @@ function FormularioCampanha({ indice }: { indice: IndiceBase }) {
   function novaCampanha() {
     setNome("");
     setScopeId("");
+    setCidade("");
     setCopy("");
     setMidia(null);
     if (fileRef.current) fileRef.current.value = "";
@@ -323,7 +326,10 @@ function FormularioCampanha({ indice }: { indice: IndiceBase }) {
                 <select
                   id="base"
                   value={scopeId}
-                  onChange={(e) => setScopeId(e.target.value)}
+                  onChange={(e) => {
+                    setScopeId(e.target.value);
+                    setCidade(""); // a cidade sugerida pertencia ao recorte anterior
+                  }}
                   className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm font-medium shadow-sm outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="">Selecione a base…</option>
@@ -348,23 +354,64 @@ function FormularioCampanha({ indice }: { indice: IndiceBase }) {
               </Campo>
 
               {recorte && (
-                <div className="grid grid-cols-2 gap-3 rounded-xl border bg-muted/40 p-4">
-                  <div>
-                    <p className="font-subtitle text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Telefones alcançados
-                    </p>
-                    <p className="mt-1 font-num font-display text-2xl font-bold leading-none text-[color:var(--success)]">
-                      {formatNumber(recorte.contatos)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="font-subtitle text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Pessoas únicas
-                    </p>
-                    <p className="mt-1 font-num font-display text-2xl font-bold leading-none text-[color:var(--color-chart-5)]">
-                      {formatNumber(recorte.pessoas)}
-                    </p>
-                  </div>
+                <Campo
+                  label="Cidade (opcional)"
+                  hint="Deixe em branco para disparar no recorte inteiro."
+                  htmlFor="cidade"
+                >
+                  <input
+                    id="cidade"
+                    list={`cidades-${scopeId}`}
+                    value={cidade}
+                    onChange={(e) => setCidade(e.target.value)}
+                    placeholder="Ex.: Arapiraca"
+                    className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none transition focus:ring-2 focus:ring-ring"
+                  />
+                  {/* Sugestão, não restrição: a base lista só as 10 maiores de
+                      cada recorte, então qualquer cidade digitada vale. */}
+                  <datalist id={`cidades-${scopeId}`}>
+                    {recorte.cidades.map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
+                </Campo>
+              )}
+
+              {recorte && (
+                <div className="rounded-xl border bg-muted/40 p-4">
+                  {cidade.trim() ? (
+                    <>
+                      <p className="font-subtitle text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Alcance
+                      </p>
+                      <p className="mt-1 font-display text-lg font-bold leading-tight text-foreground">
+                        A definir na segmentação
+                      </p>
+                      <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                        A ATONNS filtra <strong className="text-foreground">{cidade.trim()}</strong>{" "}
+                        dentro de {recorte.rotulo} e o volume real vem no relatório do disparo.
+                      </p>
+                    </>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="font-subtitle text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Telefones alcançados
+                        </p>
+                        <p className="mt-1 font-num font-display text-2xl font-bold leading-none text-[color:var(--success)]">
+                          {formatNumber(recorte.contatos)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="font-subtitle text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Pessoas únicas
+                        </p>
+                        <p className="mt-1 font-num font-display text-2xl font-bold leading-none text-[color:var(--color-chart-5)]">
+                          {formatNumber(recorte.pessoas)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

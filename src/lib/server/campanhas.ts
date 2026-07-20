@@ -35,8 +35,12 @@ export type CampanhaDTO = {
   nome: string;
   scopeId: string;
   scopeRotulo: string;
+  /** Cidade alvo dentro do recorte. `null` = recorte inteiro. */
+  cidade: string | null;
   alcanceContatos: number;
   alcancePessoas: number;
+  /** true quando o volume só será conhecido na segmentação (campanha por cidade). */
+  alcanceADefinir: boolean;
   copy: string;
   midia: MidiaCampanha | null;
   agendadaPara: string;
@@ -56,8 +60,10 @@ type Row = {
   nome: string;
   scope_id: string;
   scope_rotulo: string;
+  cidade: string | null;
   alcance_contatos: number;
   alcance_pessoas: number;
+  alcance_a_definir: boolean;
   copy: string;
   agendada_para: Date;
   status: StatusCampanha;
@@ -92,8 +98,10 @@ function paraDTO(r: Row): CampanhaDTO {
     nome: r.nome,
     scopeId: r.scope_id,
     scopeRotulo: r.scope_rotulo,
+    cidade: r.cidade,
     alcanceContatos: r.alcance_contatos,
     alcancePessoas: r.alcance_pessoas,
+    alcanceADefinir: r.alcance_a_definir,
     copy: r.copy,
     // `bigint` volta como string do driver — converter aqui evita "1024" + 1
     // virar "10241" na tela.
@@ -138,7 +146,8 @@ function paraDTO(r: Row): CampanhaDTO {
 }
 
 const SELECT = `
-  select c.id, c.nome, c.scope_id, c.scope_rotulo, c.alcance_contatos, c.alcance_pessoas,
+  select c.id, c.nome, c.scope_id, c.scope_rotulo, c.cidade,
+         c.alcance_contatos, c.alcance_pessoas, c.alcance_a_definir,
          c.copy, c.agendada_para, c.status, c.motivo_recusa, c.criada_em, c.criada_por,
          autor.nome as criada_por_nome,
          revisor.nome as revisada_por_nome,
@@ -183,6 +192,7 @@ export async function buscarCampanha(sessao: Sessao, id: string): Promise<Campan
 export type NovaCampanha = {
   nome: string;
   scopeId: string;
+  cidade: string | null;
   copy: string;
   midiaId: string | null;
   agendadaPara: string;
@@ -190,22 +200,42 @@ export type NovaCampanha = {
 
 export async function criarCampanha(sessao: Sessao, entrada: NovaCampanha): Promise<CampanhaDTO> {
   const { getAlcance } = await import("./base");
-  const alcance = getAlcance(entrada.scopeId);
-  if (!alcance) throw new Error("Recorte de base inválido.");
+
+  const doRecorte = getAlcance(entrada.scopeId);
+  if (!doRecorte) throw new Error("Recorte de base inválido.");
 
   // O alcance NUNCA vem do cliente: é lido da base aqui. Confiar no número
   // enviado permitiria registrar uma campanha dizendo alcançar 10 milhões.
+  let rotulo = doRecorte.rotulo;
+  let contatos = doRecorte.contatos;
+  let pessoas = doRecorte.pessoas;
+  let aDefinir = false;
+
+  if (entrada.cidade) {
+    // Campanha por cidade não recebe volume aqui. O número por cidade na base
+    // é projetado (ver 002_cidade.sql), então em vez de gravar um valor que
+    // não se sustenta, o alcance fica "a definir" — a ATONNS segmenta no
+    // disparo e o volume real chega pelo relatório.
+    rotulo = `${entrada.cidade} · ${doRecorte.rotulo}`;
+    contatos = 0;
+    pessoas = 0;
+    aDefinir = true;
+  }
+
   const rows = await query<{ id: string }>(
     `insert into campanhas
-       (nome, scope_id, scope_rotulo, alcance_contatos, alcance_pessoas, copy, midia_id, agendada_para, criada_por)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       (nome, scope_id, scope_rotulo, cidade, alcance_contatos, alcance_pessoas,
+        alcance_a_definir, copy, midia_id, agendada_para, criada_por)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
      returning id`,
     [
       entrada.nome,
       entrada.scopeId,
-      alcance.rotulo,
-      alcance.contatos,
-      alcance.pessoas,
+      rotulo,
+      entrada.cidade,
+      contatos,
+      pessoas,
+      aDefinir,
       entrada.copy,
       entrada.midiaId,
       entrada.agendadaPara,

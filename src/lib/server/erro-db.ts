@@ -33,6 +33,7 @@ const POR_CONSTRAINT: Record<string, string> = {
   arquivos_caminho_key: "Conflito de arquivo no disco. Tente enviar novamente.",
   // 002_cidade.sql
   cidade_nao_vazia: "Cidade em branco — deixe o campo vazio para usar o recorte inteiro.",
+  botao_completo: "Para um botão, preencha o texto e o link (começando com https://).",
   alcance_coerente: "Campanha por cidade não pode ter alcance definido.",
   // 001, removida pela 003 — só aparece em banco desatualizado
   antecedencia_minima: "Seu banco ainda tem a trava antiga de 24 h. Rode: npm run db:migrate",

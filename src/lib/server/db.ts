@@ -48,7 +48,12 @@ pool.on("error", (err) => {
  * Migrações que este código exige. Atualize ao adicionar um arquivo em
  * db/migrations.
  */
-const MIGRACOES_ESPERADAS = ["001_init.sql", "002_cidade.sql", "003_antecedencia_aviso.sql"];
+const MIGRACOES_ESPERADAS = [
+  "001_init.sql",
+  "002_cidade.sql",
+  "003_antecedencia_aviso.sql",
+  "004_botao.sql",
+];
 
 /**
  * Colunas de que o código depende, por tabela.
@@ -73,6 +78,8 @@ const ESQUEMA_ESPERADO: Record<string, string[]> = {
     "alcance_pessoas",
     "alcance_a_definir",
     "copy",
+    "botao_texto",
+    "botao_url",
     "midia_id",
     "agendada_para",
     "status",

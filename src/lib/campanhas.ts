@@ -124,11 +124,20 @@ export function distanciaAte(iso: string, agora: Date = new Date()): string {
   return rtf.format(Math.round(diffMin / 1440), "day");
 }
 
-export type ErrosCampanha = Partial<Record<"nome" | "scopeId" | "copy" | "agendadaPara", string>>;
+export type ErrosCampanha = Partial<
+  Record<"nome" | "scopeId" | "copy" | "agendadaPara" | "botaoTexto" | "botaoUrl", string>
+>;
 
 /** Validação do formulário. O servidor repete tudo isso — aqui é só retorno rápido. */
 export function validarCampanha(
-  input: { nome?: string; scopeId?: string; copy?: string; agendadaPara?: string },
+  input: {
+    nome?: string;
+    scopeId?: string;
+    copy?: string;
+    agendadaPara?: string;
+    botaoTexto?: string;
+    botaoUrl?: string;
+  },
   agora: Date = new Date(),
 ): ErrosCampanha {
   const erros: ErrosCampanha = {};
@@ -147,6 +156,13 @@ export function validarCampanha(
     erros.agendadaPara = "Data inválida.";
   }
   // Antecedência abaixo de 24 h NÃO é erro — ver `abaixoDaAntecedencia`.
+
+  // Botão: texto e link andam juntos, e a URL precisa ser http(s).
+  const bt = input.botaoTexto?.trim() ?? "";
+  const bu = input.botaoUrl?.trim() ?? "";
+  if (bt && !bu) erros.botaoUrl = "Informe o link do botão, ou apague o texto.";
+  if (bu && !bt) erros.botaoTexto = "Dê um texto ao botão, ou apague o link.";
+  if (bu && !/^https?:\/\//i.test(bu)) erros.botaoUrl = "O link precisa começar com https://";
 
   return erros;
 }
@@ -206,21 +222,52 @@ export const listarCampanhas = createServerFn({ method: "GET" }).handler(
   },
 );
 
-const entradaCampanha = z.object({
-  nome: z.string().trim().min(1).max(200),
-  scopeId: z.string().min(1),
-  cidade: z
-    .string()
-    .trim()
-    .min(1)
-    .max(120)
-    .nullable()
-    .optional()
-    .transform((v) => v ?? null),
-  copy: z.string().trim().min(1).max(COPY_MAX_CHARS),
-  midiaId: z.string().uuid().nullable(),
-  agendadaPara: z.string().min(1),
-});
+/** Uma campanha, respeitando o papel. `null` se não existe ou não é sua. */
+export const buscarCampanha = createServerFn({ method: "GET" })
+  .validator(z.object({ id: z.string().uuid() }))
+  .handler(async ({ data }): Promise<CampanhaDTO | null> => {
+    const sessao = await exigirSessaoServidor();
+    const { buscarCampanha: buscar } = await import("./server/campanhas");
+    return buscar(sessao, data.id);
+  });
+
+export const BOTAO_TEXTO_MAX = 25; // limite do rótulo de botão no WhatsApp
+
+const entradaCampanha = z
+  .object({
+    nome: z.string().trim().min(1).max(200),
+    scopeId: z.string().min(1),
+    cidade: z
+      .string()
+      .trim()
+      .min(1)
+      .max(120)
+      .nullable()
+      .optional()
+      .transform((v) => v ?? null),
+    copy: z.string().trim().min(1).max(COPY_MAX_CHARS),
+    botaoTexto: z
+      .string()
+      .trim()
+      .max(BOTAO_TEXTO_MAX)
+      .nullable()
+      .optional()
+      .transform((v) => v || null),
+    botaoUrl: z
+      .string()
+      .trim()
+      .url("Link do botão inválido — comece com https://")
+      .nullable()
+      .optional()
+      .transform((v) => v || null),
+    midiaId: z.string().uuid().nullable(),
+    agendadaPara: z.string().min(1),
+  })
+  // Botão exige rótulo E link juntos — o banco tem a mesma regra.
+  .refine((d) => (d.botaoTexto === null) === (d.botaoUrl === null), {
+    message: "Para um botão, preencha o texto e o link. Deixe ambos vazios para não usar botão.",
+    path: ["botaoTexto"],
+  });
 
 export const criarCampanha = createServerFn({ method: "POST" })
   .validator(entradaCampanha)

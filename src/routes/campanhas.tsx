@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   CalendarClock,
   Check,
+  ExternalLink,
   Info,
   MessageSquare,
   Paperclip,
@@ -15,13 +16,15 @@ import {
 
 import { AppShell } from "@/components/layout/AppShell";
 import { ChartCard } from "@/components/dashboard/ChartCard";
-import { MediaBubble, MediaIcon } from "@/components/campaigns/MediaPreview";
+import { MediaIcon } from "@/components/campaigns/MediaPreview";
+import { BalaoWhatsApp } from "@/components/campaigns/BalaoWhatsApp";
 import { exigirSessao } from "@/lib/guards";
 import { mensagemDeUpload } from "@/lib/erro-upload";
 import { formatNumber, type IndiceBase } from "@/lib/mix-data";
 import { carregarIndice } from "@/lib/base";
 import {
   ANTECEDENCIA_MINIMA_HORAS,
+  BOTAO_TEXTO_MAX,
   COPY_MAX_CHARS,
   MEDIA_ACCEPT,
   MEDIA_SPECS,
@@ -87,39 +90,6 @@ function Campo({
   );
 }
 
-/** Prévia fiel ao balão do WhatsApp — o que a pessoa vai receber no celular. */
-function PreviaWhatsApp({ copy, midia }: { copy: string; midia: MidiaCampanha | null }) {
-  return (
-    <div
-      className="rounded-2xl p-4"
-      style={{ background: "var(--color-muted)" }}
-      aria-label="Prévia da mensagem"
-    >
-      <div className="mx-auto max-w-[320px]">
-        <div className="overflow-hidden rounded-xl rounded-tl-sm bg-card shadow-sm ring-1 ring-black/5">
-          {midia && <MediaBubble midia={midia} />}
-          <div className="px-3 py-2.5">
-            {copy.trim() ? (
-              <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-card-foreground">
-                {copy}
-              </p>
-            ) : (
-              <p className="text-[13px] italic text-muted-foreground">
-                O texto da mensagem aparece aqui…
-              </p>
-            )}
-            <p className="mt-1 text-right font-num text-[10px] text-muted-foreground">
-              {new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(
-                new Date(),
-              )}
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function NovaCampanhaPage() {
   const { sessao } = Route.useRouteContext();
   const indice = Route.useLoaderData();
@@ -138,6 +108,8 @@ function FormularioCampanha({ indice }: { indice: IndiceBase }) {
   const [scopeId, setScopeId] = useState("");
   const [cidade, setCidade] = useState("");
   const [copy, setCopy] = useState("");
+  const [botaoTexto, setBotaoTexto] = useState("");
+  const [botaoUrl, setBotaoUrl] = useState("");
   const [midia, setMidia] = useState<MidiaCampanha | null>(null);
   const [enviandoArquivo, setEnviandoArquivo] = useState(false);
   const [agendadaPara, setAgendadaPara] = useState("");
@@ -203,13 +175,19 @@ function FormularioCampanha({ indice }: { indice: IndiceBase }) {
       scopeId,
       cidade: cidade.trim() || null,
       copy: copy.trim(),
+      botaoTexto: botaoTexto.trim() || null,
+      botaoUrl: botaoUrl.trim() || null,
       midiaId: midia?.id ?? null,
       // datetime-local devolve horário local sem fuso; o Date interpreta como
       // local, que é exatamente o que a regra das 24 h espera.
       agendadaPara: agendadaPara ? new Date(agendadaPara).toISOString() : "",
     };
 
-    const v = validarCampanha(entrada);
+    const v = validarCampanha({
+      ...entrada,
+      botaoTexto: botaoTexto.trim(),
+      botaoUrl: botaoUrl.trim(),
+    });
     setErros(v);
     if (temErros(v)) return;
 
@@ -231,6 +209,8 @@ function FormularioCampanha({ indice }: { indice: IndiceBase }) {
     setScopeId("");
     setCidade("");
     setCopy("");
+    setBotaoTexto("");
+    setBotaoUrl("");
     setMidia(null);
     if (fileRef.current) fileRef.current.value = "";
     setAgendadaPara("");
@@ -510,6 +490,49 @@ function FormularioCampanha({ indice }: { indice: IndiceBase }) {
           </ChartCard>
 
           <ChartCard
+            title="Botão de link (opcional)"
+            subtitle="Um botão clicável abaixo da mensagem — leva a pessoa a um site"
+            icon={<ExternalLink className="h-4 w-4" />}
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Campo
+                label="Texto do botão"
+                hint={`Ex.: Ver ofertas · até ${BOTAO_TEXTO_MAX} caracteres`}
+                erro={erros.botaoTexto}
+                htmlFor="botao-texto"
+              >
+                <input
+                  id="botao-texto"
+                  value={botaoTexto}
+                  onChange={(e) => setBotaoTexto(e.target.value)}
+                  maxLength={BOTAO_TEXTO_MAX}
+                  placeholder="Ver ofertas"
+                  className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none transition focus:ring-2 focus:ring-ring"
+                />
+              </Campo>
+              <Campo
+                label="Link do botão"
+                hint="Comece com https://"
+                erro={erros.botaoUrl}
+                htmlFor="botao-url"
+              >
+                <input
+                  id="botao-url"
+                  type="url"
+                  inputMode="url"
+                  value={botaoUrl}
+                  onChange={(e) => setBotaoUrl(e.target.value)}
+                  placeholder="https://mixmateus.com/ofertas"
+                  className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none transition focus:ring-2 focus:ring-ring"
+                />
+              </Campo>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Deixe os dois vazios para enviar sem botão. Para usar, preencha os dois.
+            </p>
+          </ChartCard>
+
+          <ChartCard
             title="Agendamento"
             subtitle={`${ANTECEDENCIA_MINIMA_HORAS} h de antecedência recomendadas`}
             icon={<CalendarClock className="h-4 w-4" />}
@@ -562,7 +585,7 @@ function FormularioCampanha({ indice }: { indice: IndiceBase }) {
             subtitle="Como a mensagem chega no celular"
             icon={<MessageSquare className="h-4 w-4" />}
           >
-            <PreviaWhatsApp copy={copy} midia={midia} />
+            <BalaoWhatsApp copy={copy} midia={midia} botaoTexto={botaoTexto} />
           </ChartCard>
 
           {temErros(erros) && (

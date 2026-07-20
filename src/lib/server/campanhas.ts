@@ -42,6 +42,9 @@ export type CampanhaDTO = {
   /** true quando o volume só será conhecido na segmentação (campanha por cidade). */
   alcanceADefinir: boolean;
   copy: string;
+  /** Botão de link do WhatsApp. Os dois vêm juntos, ou os dois são null. */
+  botaoTexto: string | null;
+  botaoUrl: string | null;
   midia: MidiaCampanha | null;
   agendadaPara: string;
   status: StatusCampanha;
@@ -65,6 +68,8 @@ type Row = {
   alcance_pessoas: number;
   alcance_a_definir: boolean;
   copy: string;
+  botao_texto: string | null;
+  botao_url: string | null;
   agendada_para: Date;
   status: StatusCampanha;
   motivo_recusa: string | null;
@@ -103,6 +108,8 @@ function paraDTO(r: Row): CampanhaDTO {
     alcancePessoas: r.alcance_pessoas,
     alcanceADefinir: r.alcance_a_definir,
     copy: r.copy,
+    botaoTexto: r.botao_texto,
+    botaoUrl: r.botao_url,
     // `bigint` volta como string do driver — converter aqui evita "1024" + 1
     // virar "10241" na tela.
     midia: r.midia_id
@@ -148,7 +155,8 @@ function paraDTO(r: Row): CampanhaDTO {
 const SELECT = `
   select c.id, c.nome, c.scope_id, c.scope_rotulo, c.cidade,
          c.alcance_contatos, c.alcance_pessoas, c.alcance_a_definir,
-         c.copy, c.agendada_para, c.status, c.motivo_recusa, c.criada_em, c.criada_por,
+         c.copy, c.botao_texto, c.botao_url, c.agendada_para, c.status, c.motivo_recusa,
+         c.criada_em, c.criada_por,
          autor.nome as criada_por_nome,
          revisor.nome as revisada_por_nome,
          c.revisada_em,
@@ -194,6 +202,8 @@ export type NovaCampanha = {
   scopeId: string;
   cidade: string | null;
   copy: string;
+  botaoTexto: string | null;
+  botaoUrl: string | null;
   midiaId: string | null;
   agendadaPara: string;
 };
@@ -238,8 +248,8 @@ export async function criarCampanha(sessao: Sessao, entrada: NovaCampanha): Prom
   const rows = await query<{ id: string }>(
     `insert into campanhas
        (nome, scope_id, scope_rotulo, cidade, alcance_contatos, alcance_pessoas,
-        alcance_a_definir, copy, midia_id, agendada_para, criada_por)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        alcance_a_definir, copy, botao_texto, botao_url, midia_id, agendada_para, criada_por)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
      returning id`,
     [
       entrada.nome,
@@ -250,6 +260,8 @@ export async function criarCampanha(sessao: Sessao, entrada: NovaCampanha): Prom
       pessoas,
       aDefinir,
       entrada.copy,
+      entrada.botaoTexto,
+      entrada.botaoUrl,
       entrada.midiaId,
       entrada.agendadaPara,
       sessao.id,

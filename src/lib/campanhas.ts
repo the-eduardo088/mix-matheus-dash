@@ -143,14 +143,38 @@ export function validarCampanha(
 
   if (!input.agendadaPara) {
     erros.agendadaPara = "Escolha a data e a hora do disparo.";
-  } else {
-    const alvo = new Date(input.agendadaPara);
-    if (Number.isNaN(alvo.getTime())) erros.agendadaPara = "Data inválida.";
-    else if (alvo.getTime() < minimoAgendamento(agora).getTime())
-      erros.agendadaPara = `O disparo precisa de ${ANTECEDENCIA_MINIMA_HORAS} h de antecedência. O horário mais próximo é ${formatarDataHora(minimoAgendamento(agora).toISOString())}.`;
+  } else if (Number.isNaN(new Date(input.agendadaPara).getTime())) {
+    erros.agendadaPara = "Data inválida.";
   }
+  // Antecedência abaixo de 24 h NÃO é erro — ver `abaixoDaAntecedencia`.
 
   return erros;
+}
+
+/**
+ * A campanha está agendada para menos de 24 h a partir da referência?
+ *
+ * Serve para AVISAR, nunca para bloquear. A janela existe porque aprovação de
+ * template pela Meta e aquecimento de números levam tempo — mas quem decide se
+ * vale correr o risco é o admin, na aprovação, não uma validação automática.
+ */
+export function abaixoDaAntecedencia(
+  agendadaPara: string,
+  referencia: string | Date = new Date(),
+): boolean {
+  const alvo = new Date(agendadaPara).getTime();
+  const base = new Date(referencia).getTime();
+  if (Number.isNaN(alvo) || Number.isNaN(base)) return false;
+  return alvo - base < ANTECEDENCIA_MINIMA_HORAS * 60 * 60 * 1000;
+}
+
+/** Quanto tempo falta, em horas, entre a referência e o disparo. */
+export function horasDeAntecedencia(
+  agendadaPara: string,
+  referencia: string | Date = new Date(),
+): number {
+  const diff = new Date(agendadaPara).getTime() - new Date(referencia).getTime();
+  return Math.max(0, Math.round(diff / 3_600_000));
 }
 
 export function temErros(erros: ErrosCampanha): boolean {
@@ -203,14 +227,11 @@ export const criarCampanha = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<CampanhaDTO> => {
     const sessao = await exigirSessaoServidor();
 
-    // A regra das 24 h é reconferida aqui. O formulário já barra, mas quem
-    // chamar a API direto passaria por cima — e o banco tem a constraint como
-    // terceira barreira.
+    // A janela de 24 h é RECOMENDAÇÃO, não bloqueio: agendar para daqui a
+    // 3 h é aceito, apenas sinalizado para o admin na hora de aprovar. Só a
+    // data inválida é recusada aqui.
     const alvo = new Date(data.agendadaPara);
     if (Number.isNaN(alvo.getTime())) throw new Error("Data inválida.");
-    if (alvo.getTime() < minimoAgendamento().getTime()) {
-      throw new Error(`O disparo precisa de ${ANTECEDENCIA_MINIMA_HORAS} horas de antecedência.`);
-    }
 
     const { criarCampanha: criar } = await import("./server/campanhas");
     return criar(sessao, data);

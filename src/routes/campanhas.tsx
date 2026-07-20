@@ -31,6 +31,8 @@ import {
   formatarDataHora,
   minimoAgendamento,
   paraInputLocal,
+  abaixoDaAntecedencia,
+  horasDeAntecedencia,
   temErros,
   validarCampanha,
   type ErrosCampanha,
@@ -280,11 +282,11 @@ function FormularioCampanha({ indice }: { indice: IndiceBase }) {
         </h2>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
           Escolha a base, escreva a mensagem e defina quando ela deve sair. Depois de enviada, a
-          campanha passa por aprovação da ATONNS. O disparo exige{" "}
+          campanha passa por aprovação da ATONNS. O ideal é agendar com{" "}
           <strong className="text-foreground">
             {ANTECEDENCIA_MINIMA_HORAS} horas de antecedência
           </strong>{" "}
-          para aprovação do template e aquecimento dos números.
+          — dá tempo de a Meta aprovar o template e de aquecer os números.
         </p>
       </section>
 
@@ -508,32 +510,47 @@ function FormularioCampanha({ indice }: { indice: IndiceBase }) {
 
           <ChartCard
             title="Agendamento"
-            subtitle={`Mínimo de ${ANTECEDENCIA_MINIMA_HORAS} h de antecedência`}
+            subtitle={`${ANTECEDENCIA_MINIMA_HORAS} h de antecedência recomendadas`}
             icon={<CalendarClock className="h-4 w-4" />}
           >
             <Campo
               label="Data e hora do disparo"
               erro={erros.agendadaPara}
-              hint={`Mais cedo possível: ${formatarDataHora(minimo.toISOString())}`}
+              hint={`Recomendado a partir de ${formatarDataHora(minimo.toISOString())}`}
               htmlFor="quando"
             >
+              {/* Sem `min`: agendar para menos de 24 h é permitido, só avisado. */}
               <input
                 id="quando"
                 type="datetime-local"
                 value={agendadaPara}
-                min={paraInputLocal(minimo)}
                 onChange={(e) => setAgendadaPara(e.target.value)}
                 className="w-full rounded-xl border bg-background px-4 py-2.5 font-num text-sm shadow-sm outline-none transition focus:ring-2 focus:ring-ring"
               />
             </Campo>
 
-            <div className="mt-4 flex items-start gap-2.5 rounded-xl bg-muted/50 p-3">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                A janela de {ANTECEDENCIA_MINIMA_HORAS} h cobre a aprovação do template pela Meta e
-                o aquecimento dos números. Agendamentos abaixo disso são recusados.
-              </p>
-            </div>
+            {agendadaPara && abaixoDaAntecedencia(new Date(agendadaPara).toISOString()) ? (
+              <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-[color:var(--warning)]/40 bg-[color:var(--warning)]/10 p-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--warning)]" />
+                <p className="text-xs leading-relaxed text-foreground">
+                  <strong>
+                    Faltam ~{horasDeAntecedencia(new Date(agendadaPara).toISOString())} h para este
+                    disparo.
+                  </strong>{" "}
+                  Abaixo das {ANTECEDENCIA_MINIMA_HORAS} h recomendadas, pode não haver tempo para a
+                  Meta aprovar o template e para aquecer os números. Você ainda pode enviar — a
+                  ATONNS avalia na aprovação.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 flex items-start gap-2.5 rounded-xl bg-muted/50 p-3">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  A janela de {ANTECEDENCIA_MINIMA_HORAS} h cobre a aprovação do template pela Meta
+                  e o aquecimento dos números. É uma recomendação, não um bloqueio.
+                </p>
+              </div>
+            )}
           </ChartCard>
         </div>
 

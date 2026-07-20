@@ -1,8 +1,19 @@
 import { useState, type ReactNode } from "react";
 import { Link, useRouter } from "@tanstack/react-router";
-import { BarChart3, LogOut, Send, FileBarChart, Sun, Moon, Laptop } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  BarChart3,
+  ClipboardList,
+  FileBarChart,
+  Laptop,
+  LogOut,
+  Moon,
+  Send,
+  Sun,
+} from "lucide-react";
 
 import { sair, type Sessao } from "@/lib/auth";
+import { listarCampanhas } from "@/lib/campanhas";
 import { formatNumber, type MetaBase } from "@/lib/mix-data";
 
 type ThemeMode = "auto" | "light" | "dark";
@@ -72,17 +83,41 @@ function ThemeToggle() {
   );
 }
 
-const NAV = [
-  { to: "/", label: "Painel da base", icon: BarChart3 },
-  { to: "/campanhas", label: "Nova campanha", icon: Send },
-  { to: "/relatorios", label: "Relatórios", icon: FileBarChart },
-] as const;
+/**
+ * Contador de campanhas esperando revisão. Só o admin consulta.
+ *
+ * Compartilha a queryKey com as páginas de lista, então a mesma resposta serve
+ * para as duas — sem requisição extra.
+ */
+function usePendentes(ehAdmin: boolean): number {
+  const { data } = useQuery({
+    queryKey: ["campanhas"],
+    queryFn: () => listarCampanhas(),
+    enabled: ehAdmin,
+    staleTime: 30_000,
+  });
+  return (data ?? []).filter((c) => c.status === "aguardando_aprovacao").length;
+}
 
-function Nav() {
+function Nav({ sessao }: { sessao: Sessao }) {
+  const ehAdmin = sessao.papel === "admin";
+  const pendentes = usePendentes(ehAdmin);
+
+  // A fila de aprovação vivia dentro de "Relatórios" — o nome não entregava o
+  // que ela fazia, e o admin não achava. Agora é item próprio, com contador.
+  const itens = [
+    { to: "/", label: "Painel da base", icon: BarChart3, badge: 0 },
+    { to: "/campanhas", label: "Nova campanha", icon: Send, badge: 0 },
+    ...(ehAdmin
+      ? [{ to: "/aprovacoes", label: "Aprovações", icon: ClipboardList, badge: pendentes }]
+      : []),
+    { to: "/relatorios", label: "Relatórios", icon: FileBarChart, badge: 0 },
+  ] as const;
+
   return (
     <nav className="no-print border-t bg-background/85">
       <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 sm:px-6 lg:px-8">
-        {NAV.map(({ to, label, icon: Icon }) => (
+        {itens.map(({ to, label, icon: Icon, badge }) => (
           <Link
             key={to}
             to={to}
@@ -94,6 +129,11 @@ function Nav() {
               <>
                 <Icon className="h-4 w-4" />
                 <span className="whitespace-nowrap">{label}</span>
+                {badge > 0 && (
+                  <span className="font-num inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[color:var(--warning)] px-1.5 text-[11px] font-bold text-white">
+                    {badge}
+                  </span>
+                )}
                 <span
                   aria-hidden
                   className={`absolute inset-x-2 -bottom-px h-0.5 rounded-full transition ${
@@ -225,7 +265,7 @@ export function AppShell({
             </button>
           </div>
         </div>
-        <Nav />
+        <Nav sessao={sessao} />
       </header>
 
       <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">

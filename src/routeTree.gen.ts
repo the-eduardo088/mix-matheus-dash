@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AprovacoesRouteImport } from './routes/aprovacoes'
 import { Route as CampanhasRouteImport } from './routes/campanhas'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
@@ -17,6 +18,11 @@ import { Route as RelatoriosRouteImport } from './routes/relatorios'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AprovacoesRoute = AprovacoesRouteImport.update({
+  id: '/aprovacoes',
+  path: '/aprovacoes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CampanhasRoute = CampanhasRouteImport.update({
@@ -37,12 +43,14 @@ const RelatoriosRoute = RelatoriosRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/aprovacoes': typeof AprovacoesRoute
   '/campanhas': typeof CampanhasRoute
   '/login': typeof LoginRoute
   '/relatorios': typeof RelatoriosRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/aprovacoes': typeof AprovacoesRoute
   '/campanhas': typeof CampanhasRoute
   '/login': typeof LoginRoute
   '/relatorios': typeof RelatoriosRoute
@@ -50,20 +58,22 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/aprovacoes': typeof AprovacoesRoute
   '/campanhas': typeof CampanhasRoute
   '/login': typeof LoginRoute
   '/relatorios': typeof RelatoriosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/campanhas' | '/login' | '/relatorios'
+  fullPaths: '/' | '/aprovacoes' | '/campanhas' | '/login' | '/relatorios'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/campanhas' | '/login' | '/relatorios'
-  id: '__root__' | '/' | '/campanhas' | '/login' | '/relatorios'
+  to: '/' | '/aprovacoes' | '/campanhas' | '/login' | '/relatorios'
+  id: '__root__' | '/' | '/aprovacoes' | '/campanhas' | '/login' | '/relatorios'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AprovacoesRoute: typeof AprovacoesRoute
   CampanhasRoute: typeof CampanhasRoute
   LoginRoute: typeof LoginRoute
   RelatoriosRoute: typeof RelatoriosRoute
@@ -76,6 +86,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aprovacoes': {
+      id: '/aprovacoes'
+      path: '/aprovacoes'
+      fullPath: '/aprovacoes'
+      preLoaderRoute: typeof AprovacoesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/campanhas': {
@@ -104,6 +121,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AprovacoesRoute: AprovacoesRoute,
   CampanhasRoute: CampanhasRoute,
   LoginRoute: LoginRoute,
   RelatoriosRoute: RelatoriosRoute,

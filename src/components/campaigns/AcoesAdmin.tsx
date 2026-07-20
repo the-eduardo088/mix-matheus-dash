@@ -146,8 +146,11 @@ export function FormularioRelatorio({ c, onMudou }: { c: CampanhaDTO; onMudou: (
   const num = (v: string) => {
     const t = v.trim();
     if (!t) return null;
-    const n = Number(t.replace(/\D/g, ""));
-    return Number.isFinite(n) ? n : null;
+    // Só dígitos. "abc" → null (não 0, que afirmaria "ninguém recebeu");
+    // "-5"/"1.5" → null. Ponto e sinal não fazem sentido para contagem.
+    if (!/^\d+$/.test(t)) return null;
+    const n = Number(t);
+    return Number.isSafeInteger(n) ? n : null;
   };
 
   async function onArquivo(e: React.ChangeEvent<HTMLInputElement>) {

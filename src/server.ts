@@ -28,8 +28,9 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   const body = await response.clone().text();
   if (!isH3SwallowedErrorBody(body)) return response;
 
-  console.error(consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`));
-  return new Response(renderErrorPage(), {
+  const capturado = consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`);
+  console.error(capturado);
+  return new Response(renderErrorPage(capturado), {
     status: 500,
     headers: { "content-type": "text/html; charset=utf-8" },
   });
@@ -59,6 +60,14 @@ async function servirArquivo(request: Request, id: string): Promise<Response> {
   const sessao = await lerSessaoDoRequest(request);
   if (!sessao) return new Response("Não autorizado", { status: 401 });
 
+  // Sessão válida não basta: o arquivo tem de estar ligado a uma campanha que
+  // ESTA pessoa pode ver. Sem isso, qualquer usuário logado baixaria o anexo
+  // de qualquer campanha adivinhando o UUID. (Admin vê tudo.)
+  const { podeVerArquivo } = await import("./lib/server/arquivos");
+  if (!(await podeVerArquivo(sessao, id))) {
+    return new Response("Arquivo não encontrado", { status: 404 });
+  }
+
   const { localizarArquivo, abrirStream, etagDe } = await import("./lib/server/arquivos");
   const arquivo = await localizarArquivo(id);
   if (!arquivo) return new Response("Arquivo não encontrado", { status: 404 });
@@ -81,20 +90,33 @@ async function servirArquivo(request: Request, id: string): Promise<Response> {
   });
 }
 
-const ROTA_ARQUIVO = /^\/arquivos\/([0-9a-f-]{36})$/i;
+// UUID canônico (8-4-4-4-12). O padrão frouxo "[0-9a-f-]{36}" aceitava 36
+// hífens e ia parar num cast inválido no Postgres, virando página de erro 500
+// onde o certo é 404.
+const ROTA_ARQUIVO =
+  /^\/arquivos\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const arquivo = ROTA_ARQUIVO.exec(new URL(request.url).pathname);
-      if (arquivo) return await servirArquivo(request, arquivo[1]);
+      if (arquivo) {
+        try {
+          return await servirArquivo(request, arquivo[1]);
+        } catch (err) {
+          // Falha ao servir um anexo não deve virar página de erro 500 do app
+          // inteiro — é um recurso pontual. Loga e responde 404.
+          console.error("[arquivos] falha ao servir:", err);
+          return new Response("Arquivo não encontrado", { status: 404 });
+        }
+      }
 
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {
       console.error(error);
-      return new Response(renderErrorPage(), {
+      return new Response(renderErrorPage(error), {
         status: 500,
         headers: { "content-type": "text/html; charset=utf-8" },
       });

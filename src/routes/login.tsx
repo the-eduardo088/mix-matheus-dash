@@ -4,9 +4,18 @@ import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
 
 import { entrar } from "@/lib/auth";
 
+/** Aceita só caminho relativo à própria app. Descarta URL externa. */
+function caminhoInterno(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  if (!v.startsWith("/") || v.startsWith("//")) return undefined;
+  return v;
+}
+
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => ({
-    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
+    // Só caminho interno ("/algo"), nunca URL absoluta ("//evil.com",
+    // "https://…") — senão /login?redirect= vira open redirect.
+    redirect: caminhoInterno(search.redirect),
   }),
   // Já logado não vê tela de login — vai direto para onde queria ir.
   beforeLoad: ({ context, search }) => {
@@ -45,8 +54,12 @@ function LoginPage() {
         setErro(r.erro);
         setCarregando(false);
       }
-    } catch {
-      setErro("Não foi possível entrar agora. Tente novamente.");
+    } catch (err) {
+      // A mensagem do servidor pode ser acionável (banco fora, migração
+      // pendente) — é a primeira coisa que se usa numa VPS nova.
+      setErro(
+        err instanceof Error ? err.message : "Não foi possível entrar agora. Tente novamente.",
+      );
       setCarregando(false);
     }
   }

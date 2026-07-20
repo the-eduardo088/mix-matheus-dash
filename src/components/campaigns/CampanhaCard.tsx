@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { AlertTriangle, Ban, CalendarClock, MapPin, Send, Trash2, User, Users } from "lucide-react";
 
 import { MediaIcon, MediaThumb } from "@/components/campaigns/MediaPreview";
@@ -44,15 +45,31 @@ export function CampanhaCard({
   onMudou: () => void;
 }) {
   const encerrada = c.status === "cancelada" || c.status === "recusada";
+  const [ocupado, setOcupado] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
-  async function cancelar() {
-    await cancelarCampanha({ data: { id: c.id } });
-    onMudou();
+  async function agir(acao: () => Promise<unknown>) {
+    setOcupado(true);
+    setErro(null);
+    try {
+      await acao();
+      onMudou();
+    } catch (e) {
+      // Sem isso, a promise rejeitava dentro do onClick e a tela não mudava —
+      // o usuário clicava e o card ficava lá, sem explicação.
+      setErro(e instanceof Error ? e.message : "Não foi possível concluir a ação.");
+      setOcupado(false);
+    }
   }
 
-  async function excluir() {
-    await excluirCampanha({ data: { id: c.id } });
-    onMudou();
+  function cancelar() {
+    void agir(() => cancelarCampanha({ data: { id: c.id } }));
+  }
+
+  function excluir() {
+    // Exclusão apaga campanha e anexo do disco de vez — confirma antes.
+    if (!window.confirm(`Excluir a campanha "${c.nome}"? Esta ação não pode ser desfeita.`)) return;
+    void agir(() => excluirCampanha({ data: { id: c.id } }));
   }
 
   return (
@@ -102,7 +119,8 @@ export function CampanhaCard({
           {!encerrada && (
             <button
               onClick={cancelar}
-              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              disabled={ocupado}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
               title="Cancelar campanha"
             >
               <Ban className="h-3.5 w-3.5" />
@@ -111,7 +129,8 @@ export function CampanhaCard({
           )}
           <button
             onClick={excluir}
-            className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-destructive"
+            disabled={ocupado}
+            className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-destructive disabled:opacity-50"
             aria-label={`Excluir campanha ${c.nome}`}
             title="Excluir"
           >
@@ -188,6 +207,15 @@ export function CampanhaCard({
       {c.status === "aprovada" && !c.relatorio && sessao.papel !== "admin" && (
         <p className="mt-4 rounded-xl border border-dashed px-3 py-2.5 text-xs text-muted-foreground">
           Campanha aprovada. O relatório do disparo aparece aqui assim que a ATONNS o anexar.
+        </p>
+      )}
+
+      {erro && (
+        <p
+          role="alert"
+          className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive"
+        >
+          {erro}
         </p>
       )}
 

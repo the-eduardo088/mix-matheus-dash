@@ -315,8 +315,10 @@ export const recusarCampanha = createServerFn({ method: "POST" })
   });
 
 /** Métrica do relatório: inteiro ≥ 0, ou vazio (nem toda plataforma reporta tudo). */
+// Teto = maior valor de `integer` no Postgres. Sem isso, colar um número
+// gigante estourava com erro cru (22003) em vez de mensagem de validação.
 const metrica = z
-  .union([z.number().int().min(0), z.null()])
+  .union([z.number().int().min(0).max(2_147_483_647), z.null()])
   .optional()
   .transform((v) => v ?? null);
 

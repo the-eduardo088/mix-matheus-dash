@@ -34,7 +34,10 @@ export const pool: Pool =
     connectionTimeoutMillis: 5_000,
   });
 
-if (process.env.NODE_ENV !== "production") globalPool.__mixPool = pool;
+// Preso ao globalThis sempre — se o bundler duplicar o chunk (o db é
+// importado por server.ts e pelas server fns), os dois lados compartilham o
+// mesmo pool em vez de abrir 2×max conexões.
+globalPool.__mixPool = pool;
 
 pool.on("error", (err) => {
   // Conexão ociosa derrubada pelo servidor não deve matar o processo.
@@ -108,9 +111,20 @@ async function conferirEsquema(): Promise<void> {
   try {
     const r = await pool.query<{ nome: string }>("select nome from migracoes");
     aplicadas = r.rows.map((x) => x.nome);
-  } catch {
+  } catch (err) {
+    // "42P01" = tabela não existe → banco vazio, precisa migrar. Qualquer
+    // outro código (28P01 senha, 3D000 db inexistente, ECONNREFUSED, 53300
+    // sem conexões) é falha de CONEXÃO — mandar "rode db:migrate" aqui
+    // apontaria o operador para o lado errado.
+    const codigo = (err as { code?: string })?.code;
+    if (codigo === "42P01") {
+      throw new Error(
+        "Banco não inicializado (tabela `migracoes` ausente). Rode: npm run db:migrate",
+      );
+    }
     throw new Error(
-      "Banco não inicializado (tabela `migracoes` ausente). Rode: npm run db:migrate",
+      `Não foi possível conectar ao banco (${codigo ?? "erro desconhecido"}). ` +
+        "Verifique se o Postgres está no ar e se DATABASE_URL está correta.",
     );
   }
 

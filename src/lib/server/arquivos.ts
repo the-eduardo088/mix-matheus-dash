@@ -6,9 +6,11 @@
  * inteiros na RAM a cada download e incharia todo `pg_dump`.
  */
 import { createHash, randomUUID } from "node:crypto";
-import { createReadStream } from "node:fs";
-import { mkdir, stat, unlink, writeFile } from "node:fs/promises";
+import { createReadStream, createWriteStream } from "node:fs";
+import { mkdir, stat, unlink } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 
 import { query, queryOne } from "./db";
 
@@ -99,12 +101,20 @@ export async function salvarArquivo(file: File, usuarioId: string): Promise<Arqu
   const relativo = join(pasta, randomUUID());
   const absoluto = dentroDaRaiz(relativo);
 
-  // Erros de disco viram mensagem que diz o que fazer. Sem isso, permissão
-  // negada na VPS chegava na tela como "tente novamente" — e tentar de novo
-  // nunca resolveria.
+  // Grava em STREAMING: o arquivo (até 100 MB) nunca é materializado inteiro
+  // na RAM. `file.arrayBuffer()` faria isso — dois ou três uploads grandes
+  // simultâneos estouravam a memória de uma VPS pequena.
+  //
+  // Erros de disco viram mensagem que diz o que fazer, em vez de "tente
+  // novamente" para uma permissão negada que tentar de novo não resolve.
   try {
     await mkdir(dirname(absoluto), { recursive: true });
-    await writeFile(absoluto, Buffer.from(await file.arrayBuffer()));
+    // `file.stream()` é um ReadableStream web; Readable.fromWeb o adapta para
+    // o stream do Node, e o pipeline aplica backpressure sozinho.
+    await pipeline(
+      Readable.fromWeb(file.stream() as import("node:stream/web").ReadableStream),
+      createWriteStream(absoluto),
+    );
   } catch (err) {
     const codigo = (err as NodeJS.ErrnoException)?.code;
     const pasta = raiz();
@@ -168,14 +178,28 @@ export async function localizarArquivo(id: string): Promise<ArquivoParaEnvio | n
   };
 }
 
-/** Stream de leitura — nunca carrega o arquivo inteiro na memória. */
+/**
+ * Stream de leitura com backpressure — nunca carrega o arquivo inteiro na
+ * memória E pausa quando o cliente é lento.
+ *
+ * A versão anterior fazia `enqueue` a cada chunk sem olhar `desiredSize`: um
+ * cliente lento baixando um PDF de 100 MB acumulava o arquivo todo na fila do
+ * ReadableStream — o mesmo estouro de RAM que o disco deveria evitar. Pausar o
+ * stream do Node quando a fila enche resolve.
+ */
 export function abrirStream(caminhoAbsoluto: string): ReadableStream {
   const node = createReadStream(caminhoAbsoluto);
   return new ReadableStream({
     start(controller) {
-      node.on("data", (chunk) => controller.enqueue(new Uint8Array(chunk as Buffer)));
+      node.on("data", (chunk) => {
+        controller.enqueue(new Uint8Array(chunk as Buffer));
+        if ((controller.desiredSize ?? 1) <= 0) node.pause();
+      });
       node.on("end", () => controller.close());
       node.on("error", (err) => controller.error(err));
+    },
+    pull() {
+      node.resume();
     },
     cancel() {
       node.destroy();
@@ -195,4 +219,42 @@ export async function apagarDoDisco(caminhoRelativo: string): Promise<void> {
 /** ETag estável para cache do navegador. */
 export function etagDe(id: string, tamanho: number): string {
   return `"${createHash("sha1").update(`${id}:${tamanho}`).digest("hex").slice(0, 16)}"`;
+}
+
+/**
+ * A sessão pode ver este arquivo?
+ *
+ * Sim quando o arquivo é o anexo de uma campanha, OU o anexo de um relatório,
+ * que a pessoa alcança pelo papel: admin vê tudo; cliente vê o que criou.
+ * Consulta única com `exists`.
+ */
+export async function podeVerArquivo(
+  sessao: { id: string; papel: "admin" | "cliente" },
+  arquivoId: string,
+): Promise<boolean> {
+  if (sessao.papel === "admin") {
+    const r = await queryOne<{ ok: boolean }>(
+      `select exists(
+         select 1 from campanhas where midia_id = $1
+         union all
+         select 1 from relatorios where anexo_id = $1
+       ) as ok`,
+      [arquivoId],
+    );
+    return r?.ok ?? false;
+  }
+
+  // Cliente: o arquivo tem de pertencer a uma campanha dele — seja a mídia da
+  // campanha, seja o anexo do relatório daquela campanha.
+  const r = await queryOne<{ ok: boolean }>(
+    `select exists(
+       select 1 from campanhas c where c.midia_id = $1 and c.criada_por = $2
+       union all
+       select 1 from relatorios r
+         join campanhas c on c.id = r.campanha_id
+        where r.anexo_id = $1 and c.criada_por = $2
+     ) as ok`,
+    [arquivoId, sessao.id],
+  );
+  return r?.ok ?? false;
 }

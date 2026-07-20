@@ -215,7 +215,12 @@ export function AppShell({
 
   async function handleLogout() {
     setSaindo(true);
-    await sair({ data: undefined });
+    try {
+      await sair({ data: undefined });
+    } catch {
+      // Falhou no servidor? Segue para o login mesmo assim — melhor mandar a
+      // pessoa embora do que deixar o botão preso em "Saindo…" para sempre.
+    }
     await router.invalidate();
     await router.navigate({ to: "/login", search: { redirect: undefined } });
   }

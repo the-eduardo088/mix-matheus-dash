@@ -7,7 +7,12 @@
  */
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
-import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server";
+import {
+  deleteCookie,
+  getCookie,
+  getRequestProtocol,
+  setCookie,
+} from "@tanstack/react-start/server";
 
 import { query, queryOne } from "./db";
 
@@ -22,6 +27,18 @@ export type Sessao = {
   email: string;
   papel: Papel;
 };
+
+/**
+ * O request chegou por HTTPS? Considera `x-forwarded-proto`, porque atrás de
+ * nginx a conexão até o Node é http mesmo quando o usuário está em https.
+ */
+function ehHttps(): boolean {
+  try {
+    return getRequestProtocol({ xForwardedProto: true }) === "https";
+  } catch {
+    return false;
+  }
+}
 
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -41,7 +58,14 @@ export async function criarSessao(usuarioId: string): Promise<void> {
   setCookie(COOKIE, token, {
     httpOnly: true, // JavaScript da página não enxerga — barra roubo por XSS
     sameSite: "lax", // barra uso do cookie em requisição vinda de outro site
-    secure: process.env.NODE_ENV === "production", // só HTTPS em produção
+    // Decidido pelo protocolo REAL do request, não por NODE_ENV.
+    //
+    // `process.env.NODE_ENV === "production"` era substituído por `true` na
+    // compilação, deixando `secure: true` fixo no bundle. Acessando por
+    // http:// (IP da VPS antes do HTTPS, ou proxy mal configurado), o
+    // navegador descartava o cookie em silêncio: o login respondia "ok",
+    // a sessão não colava, e a pessoa voltava para /login em loop, sem erro.
+    secure: ehHttps(),
     path: "/",
     expires: expira,
   });
@@ -75,7 +99,7 @@ export async function destruirSessao(): Promise<void> {
   if (token) {
     await query("delete from sessoes where token_hash = $1", [hashToken(token)]);
   }
-  deleteCookie(COOKIE, { path: "/" });
+  deleteCookie(COOKIE, { path: "/", secure: ehHttps(), sameSite: "lax" });
 }
 
 /** Derruba todas as sessões de um usuário — usado ao trocar a senha. */

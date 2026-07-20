@@ -199,6 +199,19 @@ export type NovaCampanha = {
 };
 
 export async function criarCampanha(sessao: Sessao, entrada: NovaCampanha): Promise<CampanhaDTO> {
+  // O anexo precisa ser um arquivo que a própria pessoa subiu. Sem isso,
+  // alguém poderia colar o UUID de mídia de outro usuário na própria campanha
+  // e passar a enxergá-la.
+  if (entrada.midiaId) {
+    const dono = await queryOne<{ criado_por: string }>(
+      "select criado_por from arquivos where id = $1",
+      [entrada.midiaId],
+    );
+    if (!dono || dono.criado_por !== sessao.id) {
+      throw new Error("Anexo inválido. Envie o arquivo novamente.");
+    }
+  }
+
   const { getAlcance } = await import("./base");
 
   const doRecorte = getAlcance(entrada.scopeId);
@@ -250,14 +263,21 @@ export async function criarCampanha(sessao: Sessao, entrada: NovaCampanha): Prom
 
 /** Cancela. Autor pode cancelar a própria; admin pode cancelar qualquer uma. */
 export async function cancelarCampanha(sessao: Sessao, id: string): Promise<void> {
+  // `and status not in (...)` evita cancelar uma campanha já recusada ou
+  // cancelada, o que apagaria o registro da revisão. A UI já esconde o botão;
+  // isto fecha a porta para a chamada direta.
+  const guarda = "status not in ('cancelada','recusada')";
   const rows =
     sessao.papel === "admin"
-      ? await query("update campanhas set status='cancelada' where id=$1 returning id", [id])
+      ? await query(
+          `update campanhas set status='cancelada' where id=$1 and ${guarda} returning id`,
+          [id],
+        )
       : await query(
-          "update campanhas set status='cancelada' where id=$1 and criada_por=$2 returning id",
+          `update campanhas set status='cancelada' where id=$1 and criada_por=$2 and ${guarda} returning id`,
           [id, sessao.id],
         );
-  if (rows.length === 0) throw new Error("Campanha não encontrada.");
+  if (rows.length === 0) throw new Error("Campanha não encontrada ou já encerrada.");
 }
 
 /** Exclui e devolve o caminho da mídia órfã, para o chamador apagar do disco. */

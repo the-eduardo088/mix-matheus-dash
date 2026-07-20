@@ -39,11 +39,51 @@ pool.on("error", (err) => {
   console.error("[db] erro em conexão ociosa:", err.message);
 });
 
+/**
+ * Migrações que este código exige. Atualize ao adicionar um arquivo em
+ * db/migrations — é o que permite ao app dizer "seu banco está atrasado" em
+ * vez de falhar com erro de constraint que ninguém liga à migração faltante.
+ */
+const MIGRACOES_ESPERADAS = ["001_init.sql", "002_cidade.sql", "003_antecedencia_aviso.sql"];
+
+let migracoesOk = false;
+
+/**
+ * Confere uma única vez, na primeira consulta, se o banco está atualizado.
+ *
+ * Sem isso, esquecer `npm run db:migrate` depois de um deploy causava falhas
+ * espalhadas e sem relação aparente: coluna inexistente ao criar campanha,
+ * ou a trava antiga das 24 h recusando agendamento que a tela já permitia.
+ */
+async function conferirMigracoes(): Promise<void> {
+  if (migracoesOk) return;
+
+  let aplicadas: string[];
+  try {
+    const rows = await pool.query<{ nome: string }>("select nome from migracoes");
+    aplicadas = rows.rows.map((r) => r.nome);
+  } catch {
+    throw new Error(
+      "Banco não inicializado (tabela `migracoes` ausente). Rode: npm run db:migrate",
+    );
+  }
+
+  const faltando = MIGRACOES_ESPERADAS.filter((m) => !aplicadas.includes(m));
+  if (faltando.length > 0) {
+    throw new Error(
+      `Banco desatualizado — falta aplicar: ${faltando.join(", ")}. Rode: npm run db:migrate`,
+    );
+  }
+
+  migracoesOk = true;
+}
+
 /** Consulta simples. Sempre use parâmetros ($1, $2) — nunca interpole SQL. */
 export async function query<T extends QueryResultRow = QueryResultRow>(
   sql: string,
   params: unknown[] = [],
 ): Promise<T[]> {
+  await conferirMigracoes();
   const res = await pool.query<T>(sql, params);
   return res.rows;
 }

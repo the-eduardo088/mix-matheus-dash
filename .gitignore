@@ -30,3 +30,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Env e uploads locais
+.env
+.env.*
+!.env.example
+uploads/

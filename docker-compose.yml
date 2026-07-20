@@ -1,0 +1,32 @@
+# Postgres de desenvolvimento — mesma imagem que roda na VPS.
+#
+#   docker compose up -d      sobe o banco
+#   docker compose down       para (mantém os dados)
+#   docker compose down -v    para e APAGA os dados
+#
+# Na VPS, use este mesmo arquivo trocando as credenciais pelo .env de produção.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: mix_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mix_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-mix_painel}
+      # Acentuação e ordenação em pt-BR (nomes de loja, cidades, rótulos).
+      LANG: pt_BR.utf8
+    ports:
+      # Só escuta em localhost — o banco não fica exposto na internet da VPS.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mix} -d ${POSTGRES_DB:-mix_painel}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:

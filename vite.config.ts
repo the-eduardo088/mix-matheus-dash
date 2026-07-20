@@ -12,4 +12,9 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Alvo do build: servidor Node, para rodar na VPS junto do Postgres.
+  // Dentro do build da Lovable esta opção é ignorada (lá o preset é forçado
+  // para Cloudflare), então o preview de lá continua funcionando normalmente.
+  // Depois de `npm run build`, sobe com `npm start`.
+  nitro: { preset: "node-server" },
 });

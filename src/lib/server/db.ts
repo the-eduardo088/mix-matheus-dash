@@ -6,6 +6,8 @@
  */
 import { Pool, type PoolClient, type QueryResultRow } from "pg";
 
+import { traduzirErroDb } from "./erro-db";
+
 if (typeof window !== "undefined") {
   throw new Error("src/lib/server/db.ts foi importado no cliente. Use apenas em server functions.");
 }
@@ -41,41 +43,121 @@ pool.on("error", (err) => {
 
 /**
  * Migrações que este código exige. Atualize ao adicionar um arquivo em
- * db/migrations — é o que permite ao app dizer "seu banco está atrasado" em
- * vez de falhar com erro de constraint que ninguém liga à migração faltante.
+ * db/migrations.
  */
 const MIGRACOES_ESPERADAS = ["001_init.sql", "002_cidade.sql", "003_antecedencia_aviso.sql"];
 
-let migracoesOk = false;
+/**
+ * Colunas de que o código depende, por tabela.
+ *
+ * Conferir isto — e não só a tabela `migracoes` — é o que pega o caso em que o
+ * registro diz "aplicada" mas o schema não corresponde: backup restaurado de
+ * uma versão anterior, coluna removida à mão, migração revertida pela metade.
+ * Foi exatamente assim que um `column "cidade" does not exist` chegou cru na
+ * tela do usuário.
+ */
+const ESQUEMA_ESPERADO: Record<string, string[]> = {
+  usuarios: ["id", "email", "senha_hash", "nome", "papel", "ativo"],
+  sessoes: ["token_hash", "usuario_id", "expira_em"],
+  arquivos: ["id", "nome_original", "mime", "tamanho", "kind", "caminho", "criado_por"],
+  campanhas: [
+    "id",
+    "nome",
+    "scope_id",
+    "scope_rotulo",
+    "cidade",
+    "alcance_contatos",
+    "alcance_pessoas",
+    "alcance_a_definir",
+    "copy",
+    "midia_id",
+    "agendada_para",
+    "status",
+    "motivo_recusa",
+    "criada_por",
+    "revisada_por",
+    "revisada_em",
+  ],
+  relatorios: [
+    "id",
+    "campanha_id",
+    "entregues",
+    "lidas",
+    "respostas",
+    "falhas",
+    "observacoes",
+    "anexo_id",
+    "criado_por",
+  ],
+};
+
+let esquemaOk = false;
 
 /**
- * Confere uma única vez, na primeira consulta, se o banco está atualizado.
+ * Confere uma vez, na primeira consulta, se o banco corresponde ao código.
  *
  * Sem isso, esquecer `npm run db:migrate` depois de um deploy causava falhas
- * espalhadas e sem relação aparente: coluna inexistente ao criar campanha,
- * ou a trava antiga das 24 h recusando agendamento que a tela já permitia.
+ * espalhadas e sem relação aparente: a trava antiga das 24 h recusando o que a
+ * tela já permitia, ou erro de coluna inexistente ao criar campanha.
  */
-async function conferirMigracoes(): Promise<void> {
-  if (migracoesOk) return;
+async function conferirEsquema(): Promise<void> {
+  if (esquemaOk) return;
 
-  let aplicadas: string[];
+  // 1. Bookkeeping das migrações — dá a instrução mais direta quando falta.
+  let aplicadas: string[] = [];
   try {
-    const rows = await pool.query<{ nome: string }>("select nome from migracoes");
-    aplicadas = rows.rows.map((r) => r.nome);
+    const r = await pool.query<{ nome: string }>("select nome from migracoes");
+    aplicadas = r.rows.map((x) => x.nome);
   } catch {
     throw new Error(
       "Banco não inicializado (tabela `migracoes` ausente). Rode: npm run db:migrate",
     );
   }
 
-  const faltando = MIGRACOES_ESPERADAS.filter((m) => !aplicadas.includes(m));
-  if (faltando.length > 0) {
+  const faltamMigracoes = MIGRACOES_ESPERADAS.filter((m) => !aplicadas.includes(m));
+  if (faltamMigracoes.length > 0) {
     throw new Error(
-      `Banco desatualizado — falta aplicar: ${faltando.join(", ")}. Rode: npm run db:migrate`,
+      `Banco desatualizado — falta aplicar: ${faltamMigracoes.join(", ")}. Rode: npm run db:migrate`,
     );
   }
 
-  migracoesOk = true;
+  // 2. Estrutura real. O registro pode mentir; as colunas, não.
+  const { rows } = await pool.query<{ table_name: string; column_name: string }>(
+    `select table_name, column_name
+       from information_schema.columns
+      where table_schema = 'public'
+        and table_name = any($1)`,
+    [Object.keys(ESQUEMA_ESPERADO)],
+  );
+
+  const existentes = new Map<string, Set<string>>();
+  for (const r of rows) {
+    if (!existentes.has(r.table_name)) existentes.set(r.table_name, new Set());
+    existentes.get(r.table_name)!.add(r.column_name);
+  }
+
+  const problemas: string[] = [];
+  for (const [tabela, colunas] of Object.entries(ESQUEMA_ESPERADO)) {
+    const tem = existentes.get(tabela);
+    if (!tem) {
+      problemas.push(`tabela \`${tabela}\` ausente`);
+      continue;
+    }
+    const faltando = colunas.filter((c) => !tem.has(c));
+    if (faltando.length > 0) {
+      problemas.push(`\`${tabela}\` sem: ${faltando.join(", ")}`);
+    }
+  }
+
+  if (problemas.length > 0) {
+    throw new Error(
+      `Estrutura do banco não corresponde ao código (${problemas.join(" · ")}). ` +
+        "As migrações constam aplicadas, então o schema foi alterado por fora. " +
+        "Recrie o banco ou aplique manualmente as colunas de db/migrations.",
+    );
+  }
+
+  esquemaOk = true;
 }
 
 /** Consulta simples. Sempre use parâmetros ($1, $2) — nunca interpole SQL. */
@@ -83,9 +165,18 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
   sql: string,
   params: unknown[] = [],
 ): Promise<T[]> {
-  await conferirMigracoes();
-  const res = await pool.query<T>(sql, params);
-  return res.rows;
+  await conferirEsquema();
+  try {
+    const res = await pool.query<T>(sql, params);
+    return res.rows;
+  } catch (err) {
+    // Erro do Postgres não deve chegar cru na tela: além de incompreensível,
+    // expõe nome de tabela e coluna.
+    const amigavel = traduzirErroDb(err);
+    if (amigavel) throw new Error(amigavel);
+    console.error("[db] erro não mapeado:", err);
+    throw new Error("Falha ao acessar o banco de dados. Tente novamente.");
+  }
 }
 
 /** Primeira linha, ou `null`. */

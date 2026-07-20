@@ -2,6 +2,7 @@ import { useState } from "react";
 import { AlertTriangle, BarChart3, Check, Paperclip, Trash2, X } from "lucide-react";
 
 import { MediaIcon } from "@/components/campaigns/MediaPreview";
+import { mensagemDeUpload } from "@/lib/erro-upload";
 import {
   MEDIA_ACCEPT,
   MEDIA_SPECS,
@@ -171,8 +172,8 @@ export function FormularioRelatorio({ c, onMudou }: { c: CampanhaDTO; onMudou: (
       const form = new FormData();
       form.append("arquivo", file);
       setAnexo(await enviarMidia({ data: form }));
-    } catch {
-      setErro("Não foi possível enviar o arquivo.");
+    } catch (err) {
+      setErro(mensagemDeUpload(err));
     } finally {
       setEnviando(false);
     }

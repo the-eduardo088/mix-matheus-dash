@@ -16,7 +16,8 @@
     "db:logs": "docker compose logs -f postgres",
     "db:psql": "docker compose exec postgres psql -U mix -d mix_painel",
     "db:migrate": "node scripts/migrate.mjs",
-    "user:criar": "node scripts/criar-usuario.mjs"
+    "user:criar": "node scripts/criar-usuario.mjs",
+    "check:uploads": "node scripts/checar-uploads.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

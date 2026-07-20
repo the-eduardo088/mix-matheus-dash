@@ -269,7 +269,14 @@ export const enviarMidia = createServerFn({ method: "POST" })
     const sessao = await exigirSessaoServidor();
 
     const file = data.get("arquivo");
-    if (!(file instanceof File)) throw new Error("Nenhum arquivo recebido.");
+    if (!(file instanceof File)) {
+      // Chegar aqui com o campo vazio normalmente significa que o corpo do
+      // POST foi cortado antes do Node — proxy reverso com limite de tamanho é
+      // a causa mais comum (o nginx corta em 1 MB por padrão).
+      throw new Error(
+        "Nenhum arquivo recebido. Se há um proxy na frente (nginx), confira o limite de tamanho do corpo (client_max_body_size).",
+      );
+    }
 
     const { salvarArquivo } = await import("./server/arquivos");
     const salvo = await salvarArquivo(file, sessao.id);

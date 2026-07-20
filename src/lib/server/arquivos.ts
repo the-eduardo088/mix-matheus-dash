@@ -99,8 +99,28 @@ export async function salvarArquivo(file: File, usuarioId: string): Promise<Arqu
   const relativo = join(pasta, randomUUID());
   const absoluto = dentroDaRaiz(relativo);
 
-  await mkdir(dirname(absoluto), { recursive: true });
-  await writeFile(absoluto, Buffer.from(await file.arrayBuffer()));
+  // Erros de disco viram mensagem que diz o que fazer. Sem isso, permissão
+  // negada na VPS chegava na tela como "tente novamente" — e tentar de novo
+  // nunca resolveria.
+  try {
+    await mkdir(dirname(absoluto), { recursive: true });
+    await writeFile(absoluto, Buffer.from(await file.arrayBuffer()));
+  } catch (err) {
+    const codigo = (err as NodeJS.ErrnoException)?.code;
+    const pasta = raiz();
+    if (codigo === "EACCES" || codigo === "EPERM") {
+      throw new Error(
+        `Sem permissão para gravar em ${pasta}. Dê acesso ao usuário que roda a aplicação (ex.: chown -R app:app ${pasta}).`,
+      );
+    }
+    if (codigo === "ENOSPC") {
+      throw new Error(`Sem espaço em disco para gravar em ${pasta}.`);
+    }
+    if (codigo === "EROFS") {
+      throw new Error(`O disco em ${pasta} está montado como somente leitura.`);
+    }
+    throw new Error(`Falha ao gravar o arquivo em ${pasta}: ${codigo ?? (err as Error).message}`);
+  }
 
   try {
     const row = await queryOne<{ id: string }>(

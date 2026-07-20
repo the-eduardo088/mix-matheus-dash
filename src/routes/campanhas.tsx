@@ -17,6 +17,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { ChartCard } from "@/components/dashboard/ChartCard";
 import { MediaBubble, MediaIcon } from "@/components/campaigns/MediaPreview";
 import { exigirSessao } from "@/lib/guards";
+import { mensagemDeUpload } from "@/lib/erro-upload";
 import { formatNumber, type IndiceBase } from "@/lib/mix-data";
 import { carregarIndice } from "@/lib/base";
 import {
@@ -179,8 +180,8 @@ function FormularioCampanha({ indice }: { indice: IndiceBase }) {
       const form = new FormData();
       form.append("arquivo", file);
       setMidia(await enviarMidia({ data: form }));
-    } catch {
-      setErroArquivo("Não foi possível enviar o arquivo. Tente novamente.");
+    } catch (err) {
+      setErroArquivo(mensagemDeUpload(err));
     } finally {
       setEnviandoArquivo(false);
     }

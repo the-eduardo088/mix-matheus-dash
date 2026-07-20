@@ -1,29 +1,54 @@
+import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
-import { Lock, Mail, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
 
-import { checkCredentials, setAuthed } from "@/lib/auth";
+import { entrar } from "@/lib/auth";
 
-export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
+export const Route = createFileRoute("/login")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
+  }),
+  // Já logado não vê tela de login — vai direto para onde queria ir.
+  beforeLoad: ({ context, search }) => {
+    if (context.sessao) throw redirect({ to: search.redirect || "/" });
+  },
+  head: () => ({
+    meta: [
+      { title: "Entrar · Painel Mix Mateus" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
+  component: LoginPage,
+});
+
+function LoginPage() {
+  const router = useRouter();
+  const { redirect: destino } = Route.useSearch();
+
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPw, setShowPw] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [senha, setSenha] = useState("");
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [carregando, setCarregando] = useState(false);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setLoading(true);
-    // pequeno atraso só para dar feedback de "verificando"
-    setTimeout(() => {
-      if (checkCredentials(email, password)) {
-        setAuthed();
-        onSuccess();
+    setErro(null);
+    setCarregando(true);
+    try {
+      const r = await entrar({ data: { email, senha } });
+      if (r.ok) {
+        // `invalidate` refaz o beforeLoad do root, que relê a sessão nova.
+        await router.invalidate();
+        await router.navigate({ to: destino || "/" });
       } else {
-        setError("E-mail ou senha inválidos. Verifique e tente novamente.");
-        setLoading(false);
+        setErro(r.erro);
+        setCarregando(false);
       }
-    }, 250);
+    } catch {
+      setErro("Não foi possível entrar agora. Tente novamente.");
+      setCarregando(false);
+    }
   }
 
   return (
@@ -43,7 +68,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
               Acesso ao painel
             </h1>
             <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-              Análise da base para campanhas de WhatsApp. Entre com suas credenciais para continuar.
+              Campanhas de WhatsApp e análise da base. Entre com suas credenciais para continuar.
             </p>
           </div>
 
@@ -72,7 +97,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
 
             <div>
               <label
-                htmlFor="password"
+                htmlFor="senha"
                 className="font-subtitle mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
               >
                 Senha
@@ -80,42 +105,42 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
               <div className="relative">
                 <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
-                  id="password"
-                  type={showPw ? "text" : "password"}
+                  id="senha"
+                  type={mostrarSenha ? "text" : "password"}
                   autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
                   placeholder="••••••••"
                   className="w-full rounded-xl border bg-background py-2.5 pl-10 pr-11 text-sm shadow-sm outline-none transition focus:ring-2 focus:ring-ring"
                   required
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPw((v) => !v)}
+                  onClick={() => setMostrarSenha((v) => !v)}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                  aria-label={showPw ? "Ocultar senha" : "Mostrar senha"}
+                  aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
                 >
-                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {mostrarSenha ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
 
-            {error && (
+            {erro && (
               <p
                 role="alert"
                 className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive"
               >
-                {error}
+                {erro}
               </p>
             )}
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={carregando}
               className="group inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-60"
             >
-              {loading ? "Verificando…" : "Entrar no painel"}
-              {!loading && (
+              {carregando ? "Verificando…" : "Entrar no painel"}
+              {!carregando && (
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               )}
             </button>

@@ -1,45 +1,48 @@
 /**
- * Acesso restrito ao painel.
+ * Autenticação — ponte entre o cliente e o servidor.
  *
- * Trava simples do lado do cliente (a senha fica no próprio código) — pensada
- * para um uso pontual e restrito, não para segurança forte. Para trocar as
- * credenciais, edite o objeto CREDENTIALS abaixo.
+ * Os handlers só rodam no servidor; o cliente recebe apenas um stub que faz a
+ * chamada RPC. O `import()` dinâmico dentro de cada handler garante que o
+ * driver do Postgres nunca entre no grafo de módulos do navegador.
+ *
+ * (Antes daqui existia um objeto CREDENTIALS com e-mail e senha fixos no
+ * código, visíveis para qualquer um que abrisse o bundle. Foi aposentado —
+ * agora as contas vivem na tabela `usuarios`, com hash scrypt.)
  */
-export const CREDENTIALS = {
-  email: "admin@atonns.com.br",
-  password: "MixMateus@2026",
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+
+export type Papel = "admin" | "cliente";
+
+export type Sessao = {
+  id: string;
+  nome: string;
+  email: string;
+  papel: Papel;
 };
 
-const STORAGE_KEY = "mm_painel_auth";
+const credenciais = z.object({
+  email: z.string().trim().min(1, "Informe o e-mail").email("E-mail inválido"),
+  senha: z.string().min(1, "Informe a senha"),
+});
 
-export function checkCredentials(email: string, password: string): boolean {
-  return (
-    email.trim().toLowerCase() === CREDENTIALS.email.toLowerCase() &&
-    password === CREDENTIALS.password
-  );
-}
+export const entrar = createServerFn({ method: "POST" })
+  .validator(credenciais)
+  .handler(async ({ data }) => {
+    const { autenticar } = await import("./server/autenticacao");
+    return autenticar(data.email, data.senha);
+  });
 
-/** Lê o estado de sessão (só existe no cliente). */
-export function isAuthed(): boolean {
-  try {
-    return sessionStorage.getItem(STORAGE_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
+export const sair = createServerFn({ method: "POST" }).handler(async () => {
+  const { destruirSessao } = await import("./server/sessao");
+  await destruirSessao();
+  return { ok: true as const };
+});
 
-export function setAuthed(): void {
-  try {
-    sessionStorage.setItem(STORAGE_KEY, "1");
-  } catch {
-    /* sessionStorage indisponível — segue sem persistir */
-  }
-}
-
-export function clearAuthed(): void {
-  try {
-    sessionStorage.removeItem(STORAGE_KEY);
-  } catch {
-    /* noop */
-  }
-}
+/** Sessão do request atual, ou `null`. Base de toda a proteção de rota. */
+export const sessaoAtual = createServerFn({ method: "GET" }).handler(
+  async (): Promise<Sessao | null> => {
+    const { lerSessao } = await import("./server/sessao");
+    return lerSessao();
+  },
+);

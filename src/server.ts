@@ -44,9 +44,51 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+/**
+ * Serve os anexos das campanhas com sessão obrigatória e streaming.
+ *
+ * Fica aqui, antes do handler do TanStack, porque esta versão não tem rotas de
+ * API — e porque um `<img src>` / `<video src>` precisa de URL normal, coisa
+ * que o endpoint RPC de uma server function não oferece.
+ *
+ * Streaming importa: um PDF de 100 MB servido por leitura completa em memória
+ * derrubaria a VPS com poucos downloads simultâneos.
+ */
+async function servirArquivo(request: Request, id: string): Promise<Response> {
+  const { lerSessaoDoRequest } = await import("./lib/server/sessao-request");
+  const sessao = await lerSessaoDoRequest(request);
+  if (!sessao) return new Response("Não autorizado", { status: 401 });
+
+  const { localizarArquivo, abrirStream, etagDe } = await import("./lib/server/arquivos");
+  const arquivo = await localizarArquivo(id);
+  if (!arquivo) return new Response("Arquivo não encontrado", { status: 404 });
+
+  // Se o navegador já tem a versão em cache, devolve 304 e não lê o disco.
+  const etag = etagDe(id, arquivo.tamanho);
+  if (request.headers.get("if-none-match") === etag) {
+    return new Response(null, { status: 304, headers: { etag } });
+  }
+
+  return new Response(abrirStream(arquivo.caminhoAbsoluto), {
+    headers: {
+      "content-type": arquivo.mime,
+      "content-length": String(arquivo.tamanho),
+      "content-disposition": `inline; filename*=UTF-8''${encodeURIComponent(arquivo.nome)}`,
+      etag,
+      // `private` para nenhum proxy compartilhado guardar anexo de campanha.
+      "cache-control": "private, max-age=3600",
+    },
+  });
+}
+
+const ROTA_ARQUIVO = /^\/arquivos\/([0-9a-f-]{36})$/i;
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const arquivo = ROTA_ARQUIVO.exec(new URL(request.url).pathname);
+      if (arquivo) return await servirArquivo(request, arquivo[1]);
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);

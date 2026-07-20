@@ -1,6 +1,16 @@
-import raw from "@/data/mix-mateus.json";
+/**
+ * Tipos, formatação e cores da base Mix Mateus. SEGURO NO CLIENTE.
+ *
+ * Este arquivo NÃO importa mais `src/data/mix-mateus.json`. Ele importava, e o
+ * resultado era a base inteira (1,8 milhão de pessoas — renda, idade,
+ * telefone) viajando dentro do bundle JavaScript para qualquer visitante.
+ *
+ * Agora o JSON vive em `src/lib/server/base.ts`, e a tela pede um recorte por
+ * vez através de `src/lib/base.ts`, com sessão. Nada de dado pessoal aqui.
+ */
 
 export type DimBucket = { key: string; value: number };
+
 export type Loja = {
   codigo: string;
   nome: string;
@@ -33,9 +43,16 @@ export type Scope = {
   lojas?: Loja[];
 };
 
-const data = raw as any;
+/** Entrada do seletor de recorte — sem nenhum dado da base, só rótulo. */
+export type RecorteResumo = {
+  id: string;
+  rotulo: string;
+  tipo: Scope["tipo"];
+  contatos: number;
+  pessoas: number;
+};
 
-export const meta = data.meta as {
+export type MetaBase = {
   extracao: string;
   fonte: string;
   total_pessoas: number;
@@ -46,32 +63,11 @@ export const meta = data.meta as {
   notas: string;
 };
 
-const geralScope: Scope = {
-  id: "geral",
-  rotulo: "Base Completa (PE · PB · AL)",
-  tipo: "geral",
-  ...data.geral,
+/** Índice carregado uma vez por sessão: rótulos e metadados, sem distribuições. */
+export type IndiceBase = {
+  meta: MetaBase;
+  recortes: RecorteResumo[];
 };
-
-const estadoScopes: Scope[] = Object.entries(data.estados).map(([id, v]: any) => ({
-  id,
-  rotulo: v.nome ?? id,
-  tipo: "estado",
-  ...v,
-}));
-
-const clusterScopes: Scope[] = Object.entries(data.clusters).map(([id, v]: any) => ({
-  id,
-  rotulo: v.rotulo ?? id,
-  tipo: "cluster",
-  ...v,
-}));
-
-export const scopes: Scope[] = [geralScope, ...estadoScopes, ...clusterScopes];
-
-export function getScope(id: string): Scope {
-  return scopes.find((s) => s.id === id) ?? geralScope;
-}
 
 export function toBuckets(map: Record<string, number>, order?: string[]): DimBucket[] {
   const entries = Object.entries(map ?? {}).map(([key, value]) => ({
@@ -91,46 +87,6 @@ export function toBuckets(map: Record<string, number>, order?: string[]): DimBuc
     entries.sort((a, b) => b.value - a.value);
   }
   return entries;
-}
-
-/** Lojas ausentes: registradas no meta OU sem qualquer contato na base */
-export function lojasSemRegistro(): {
-  codigo: string;
-  nome: string;
-  cep?: string;
-  motivo: string;
-}[] {
-  const fromMeta = (meta.notas.match(/Lojas sem registro:\s*([^.]+)/)?.[1] ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((n) => ({
-      codigo: n.split("-")[0],
-      nome: n,
-      motivo: "Sem registro na base (CEP não encontrado)",
-    }));
-
-  const zeradas: { codigo: string; nome: string; cep?: string; motivo: string }[] = [];
-  for (const c of clusterScopes) {
-    for (const l of c.lojas ?? []) {
-      if ((l.contatos ?? 0) === 0 && !fromMeta.find((f) => f.nome === l.nome)) {
-        zeradas.push({
-          codigo: l.codigo,
-          nome: l.nome,
-          cep: l.cep,
-          motivo: "Cadastrada mas sem contatos capturados",
-        });
-      }
-    }
-  }
-  // enrich fromMeta with cep se encontrarmos
-  for (const c of clusterScopes) {
-    for (const l of c.lojas ?? []) {
-      const hit = fromMeta.find((f) => f.nome === l.nome);
-      if (hit && !("cep" in hit && hit.cep)) (hit as any).cep = l.cep;
-    }
-  }
-  return [...fromMeta, ...zeradas];
 }
 
 export function pct(part: number, total: number) {

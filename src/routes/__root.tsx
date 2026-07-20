@@ -13,6 +13,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { sessaoAtual } from "../lib/auth";
 
 /**
  * Lê o host real do request no servidor (respeitando o proxy da Lovable/
@@ -98,6 +99,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  /**
+   * Resolve a sessão uma vez por navegação e injeta no contexto do roteador.
+   * Assim toda rota filha decide se libera ou redireciona sem repetir consulta,
+   * e o SSR já sai com o estado certo — nada de piscar a tela de login.
+   */
+  beforeLoad: async () => ({ sessao: await sessaoAtual() }),
+
   head: () => {
     const origin = siteOrigin();
     // Absoluta quando há origin (SSR/cliente); relativa só em último caso.

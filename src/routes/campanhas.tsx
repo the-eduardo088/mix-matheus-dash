@@ -271,16 +271,6 @@ function FormularioCampanha({ indice }: { indice: IndiceBase }) {
         </p>
       </section>
 
-      {/* Aviso honesto: o formulário registra, não dispara. */}
-      <div className="flex items-start gap-3 rounded-2xl border border-[color:var(--warning)]/40 bg-[color:var(--warning)]/10 p-4">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--warning)]" />
-        <p className="text-xs leading-relaxed text-foreground">
-          <strong>Este painel ainda não dispara mensagens.</strong> A campanha fica registrada e
-          segue para aprovação da ATONNS, mas o envio em si ainda é feito fora daqui — não há
-          integração com plataforma de disparo.
-        </p>
-      </div>
-
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start">
         {/* ── Coluna do formulário ─────────────────────────────────────── */}
         <div className="space-y-6">

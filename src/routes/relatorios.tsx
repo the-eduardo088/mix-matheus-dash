@@ -8,7 +8,6 @@ import {
   Inbox,
   Info,
   MessageSquare,
-  PlugZap,
   Send,
 } from "lucide-react";
 
@@ -42,11 +41,7 @@ export const Route = createFileRoute("/relatorios")({
   component: RelatoriosPage,
 });
 
-/**
- * KPI sem dado disponível. Deliberadamente não exibe número: enquanto não
- * houver integração de disparo, qualquer valor aqui seria inventado — e o
- * painel já convive com dados projetados sendo lidos como medidos.
- */
+/** KPI de desempenho: mostra o número quando há relatório, e "—" enquanto não há. */
 function MetricaDisparo({
   label,
   valor,
@@ -186,7 +181,6 @@ function Relatorios({ sessao }: { sessao: Sessao }) {
         </div>
       </section>
 
-      {/* Separação explícita: o que é medido de verdade vs. o que falta integrar. */}
       <section>
         <h3 className="font-subtitle mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           Planejado · calculado a partir da base
@@ -230,7 +224,7 @@ function Relatorios({ sessao }: { sessao: Sessao }) {
 
       <section>
         <h3 className="font-subtitle mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Desempenho do disparo · requer integração
+          Desempenho do disparo
         </h3>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <MetricaDisparo
@@ -255,21 +249,6 @@ function Relatorios({ sessao }: { sessao: Sessao }) {
             icon={<Ban className="h-5 w-5" />}
             accent="text-destructive"
           />
-        </div>
-
-        <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[color:var(--warning)]/40 bg-[color:var(--warning)]/10 p-4">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--warning)]" />
-          <div className="text-xs leading-relaxed text-foreground">
-            <p>
-              <strong>Estes números ficam vazios de propósito.</strong> O painel não está conectado
-              a nenhuma plataforma de disparo, então não existe dado real de entrega, leitura ou
-              resposta — e preencher com estimativa seria apresentar suposição como medição.
-            </p>
-            <p className="mt-2 inline-flex items-center gap-1.5 text-muted-foreground">
-              <PlugZap className="h-3.5 w-3.5" />
-              Em breve o administrador poderá anexar o relatório do disparo aqui.
-            </p>
-          </div>
         </div>
       </section>
 

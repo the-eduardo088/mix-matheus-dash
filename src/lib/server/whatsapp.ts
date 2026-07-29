@@ -124,12 +124,25 @@ type CampanhaNotificacao = {
  *
  * Monta o texto exato da campanha (com formatação WhatsApp) e anexa a mídia.
  * Se tiver botão, inclui o link no final do texto.
+ * Se tiver mídia com nome de arquivo, usa IA para identificar região/DDD.
  * A mensagem chega como se fosse uma mensagem normal — sem indicar que é automática.
  */
 async function enviarCampanhaLimpa(
   campanha: CampanhaNotificacao,
   host: string,
 ): Promise<void> {
+  // Analisar nome do arquivo com IA para extrair região/DDD
+  let infoRegiao: string | null = null;
+  if (campanha.midia?.nome) {
+    try {
+      const { analisarNomeArquivo } = await import("./ia-arquivo");
+      const resultado = await analisarNomeArquivo(campanha.midia.nome);
+      infoRegiao = resultado.textoFormatado;
+    } catch (err) {
+      console.error("[WhatsApp] Erro ao analisar nome do arquivo:", err);
+    }
+  }
+
   // Montar texto da campanha exatamente como está
   let textoCampanha = campanha.copy;
 
@@ -143,15 +156,19 @@ async function enviarCampanhaLimpa(
     const url = urlArquivoPublico(host, campanha.midia.id);
     const tipo = mapTipoMidia(campanha.midia.kind);
 
+    // Adicionar info da região no início do texto se disponível
+    const textoFinal = infoRegiao ? `${infoRegiao}\n\n${textoCampanha}` : textoCampanha;
+
     await enviarMidia(
       tipo,
       url,
-      textoCampanha,
+      textoFinal,
       tipo === "document" ? campanha.midia.nome : undefined,
     );
   } else {
-    // Sem mídia — enviar só o texto
-    await enviarTexto(textoCampanha);
+    // Sem mídia — enviar só o texto (com info da região se disponível)
+    const textoFinal = infoRegiao ? `${infoRegiao}\n\n${textoCampanha}` : textoCampanha;
+    await enviarTexto(textoFinal);
   }
 }
 

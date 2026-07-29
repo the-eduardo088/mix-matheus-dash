@@ -53,6 +53,7 @@ const MIGRACOES_ESPERADAS = [
   "002_cidade.sql",
   "003_antecedencia_aviso.sql",
   "004_botao.sql",
+  "005_notificacoes.sql",
 ];
 
 /**

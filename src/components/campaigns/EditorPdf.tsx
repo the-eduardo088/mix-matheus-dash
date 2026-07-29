@@ -40,7 +40,7 @@ export function EditorPdf({ campanha, midia, onFechar, onSalvo }: EditorPdfProps
       setErro(null);
       try {
         const novaMidia = await enviarMidia({ data: form });
-        await registrarEdicaoPdf({ data: { campanhaId: campanha.id } });
+        await registrarEdicaoPdf({ data: { campanhaId: campanha.id, novaMidiaId: novaMidia.id } });
         return novaMidia;
       } catch (e) {
         setErro(e instanceof Error ? e.message : "Erro ao enviar arquivo.");

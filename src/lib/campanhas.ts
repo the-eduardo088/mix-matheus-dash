@@ -460,18 +460,44 @@ export const marcarTodasNotificacoesLidas = createServerFn({ method: "POST" }).h
 
 /** Registra que um PDF foi editado e notifica os admins. */
 export const registrarEdicaoPdf = createServerFn({ method: "POST" })
-  .validator(z.object({ campanhaId: z.string().uuid() }))
+  .validator(z.object({ campanhaId: z.string().uuid(), novaMidiaId: z.string().uuid() }))
   .handler(async ({ data }) => {
     const sessao = await exigirSessaoServidor();
     const { notificarPdfEditado } = await import("./server/notificacoes");
-    const { queryOne } = await import("./server/db");
+    const { queryOne, query: execQuery } = await import("./server/db");
 
-    // Buscar nome da campanha
-    const campanha = await queryOne<{ nome: string }>(
-      "select nome from campanhas where id = $1",
+    // Buscar campanha atual
+    const campanha = await queryOne<{ nome: string; midia_id: string | null }>(
+      "select nome, midia_id from campanhas where id = $1",
       [data.campanhaId],
     );
     if (!campanha) throw new Error("Campanha não encontrada.");
+
+    // Atualizar midia_id da campanha
+    await execQuery(
+      "update campanhas set midia_id = $1 where id = $2",
+      [data.novaMidiaId, data.campanhaId],
+    );
+
+    // Remover arquivo antigo (se existir)
+    if (campanha.midia_id && campanha.midia_id !== data.novaMidiaId) {
+      const antigo = await queryOne<{ caminho: string }>(
+        "select caminho from arquivos where id = $1",
+        [campanha.midia_id],
+      );
+      if (antigo) {
+        await execQuery("delete from arquivos where id = $1", [campanha.midia_id]);
+        // Apagar do disco
+        try {
+          const { unlink } = await import("fs/promises");
+          const { join } = await import("path");
+          const uploadsDir = process.env.UPLOADS_DIR ?? "uploads";
+          await unlink(join(uploadsDir, antigo.caminho));
+        } catch {
+          // Arquivo pode não existir no disco — ignorar
+        }
+      }
+    }
 
     await notificarPdfEditado(data.campanhaId, sessao.nome, campanha.nome);
     return { ok: true as const };

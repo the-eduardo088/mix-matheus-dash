@@ -271,29 +271,24 @@ export async function criarCampanha(sessao: Sessao, entrada: NovaCampanha): Prom
   const criada = await buscarCampanha(sessao, rows[0].id);
   if (!criada) throw new Error("Campanha criada mas não encontrada.");
 
-  // Notificação automática para o grupo WhatsApp
-  try {
-    const { notificarCampanhaNova } = await import("./whatsapp");
-    const host = process.env.APP_URL ?? "https://mix-campanha.atonnscore.com.br";
-    await notificarCampanhaNova(
-      {
-        id: criada.id,
-        nome: criada.nome,
-        agendadaPara: criada.agendadaPara,
-        status: criada.status,
-        copy: criada.copy,
-        criadaPorNome: criada.criadaPorNome,
-        cidade: criada.cidade,
-        botaoTexto: criada.botaoTexto,
-        botaoUrl: criada.botaoUrl,
-        midia: criada.midia,
-      },
-      host,
-    );
-  } catch (err) {
-    // Falha no WhatsApp não deve impedir a criação da campanha
-    console.error("[WhatsApp] Erro ao notificar campanha nova:", err);
-  }
+  // Notificação WhatsApp em background (não bloqueia a resposta)
+  const { notificarCampanhaNova } = await import("./whatsapp");
+  const host = process.env.APP_URL ?? "https://mix-campanha.atonnscore.com.br";
+  notificarCampanhaNova(
+    {
+      id: criada.id,
+      nome: criada.nome,
+      agendadaPara: criada.agendadaPara,
+      status: criada.status,
+      copy: criada.copy,
+      criadaPorNome: criada.criadaPorNome,
+      cidade: criada.cidade,
+      botaoTexto: criada.botaoTexto,
+      botaoUrl: criada.botaoUrl,
+      midia: criada.midia,
+    },
+    host,
+  ).catch((err) => console.error("[WhatsApp] Erro ao notificar campanha nova:", err));
 
   return criada;
 }

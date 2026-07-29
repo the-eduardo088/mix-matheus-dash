@@ -531,37 +531,32 @@ export const registrarEdicaoPdf = createServerFn({ method: "POST" })
 
     await notificarPdfEditado(data.campanhaId, sessao.nome, campanha.nome);
 
-    // Notificação automática para o grupo WhatsApp (campanha editada)
-    try {
-      const { notificarCampanhaEditada } = await import("./server/whatsapp");
-      const host = process.env.APP_URL ?? "https://mix-campanha.atonnscore.com.br";
-      await notificarCampanhaEditada(
-        {
-          id: data.campanhaId,
-          nome: campanha.nome,
-          agendadaPara: campanha.agendada_para.toISOString(),
-          status: campanha.status,
-          copy: campanha.copy,
-          criadaPorNome: campanha.criada_por_nome,
-          cidade: campanha.cidade,
-          botaoTexto: campanha.botao_texto,
-          botaoUrl: campanha.botao_url,
-          midia: novaMidia
-            ? {
-                id: novaMidia.id,
-                nome: novaMidia.nome_original,
-                kind: novaMidia.kind as MediaKind,
-                mime: novaMidia.mime,
-              }
-            : null,
-        },
-        sessao.nome,
-        host,
-      );
-    } catch (err) {
-      // Falha no WhatsApp não deve impedir a edição do PDF
-      console.error("[WhatsApp] Erro ao notificar campanha editada:", err);
-    }
+    // Notificação WhatsApp em background (não bloqueia a resposta)
+    const { notificarCampanhaEditada } = await import("./server/whatsapp");
+    const host = process.env.APP_URL ?? "https://mix-campanha.atonnscore.com.br";
+    notificarCampanhaEditada(
+      {
+        id: data.campanhaId,
+        nome: campanha.nome,
+        agendadaPara: campanha.agendada_para.toISOString(),
+        status: campanha.status,
+        copy: campanha.copy,
+        criadaPorNome: campanha.criada_por_nome,
+        cidade: campanha.cidade,
+        botaoTexto: campanha.botao_texto,
+        botaoUrl: campanha.botao_url,
+        midia: novaMidia
+          ? {
+              id: novaMidia.id,
+              nome: novaMidia.nome_original,
+              kind: novaMidia.kind as MediaKind,
+              mime: novaMidia.mime,
+            }
+          : null,
+      },
+      sessao.nome,
+      host,
+    ).catch((err) => console.error("[WhatsApp] Erro ao notificar campanha editada:", err));
 
     return { ok: true as const };
   });

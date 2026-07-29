@@ -131,13 +131,22 @@ async function enviarCampanhaLimpa(
   campanha: CampanhaNotificacao,
   host: string,
 ): Promise<void> {
-  // Analisar nome do arquivo com IA para extrair região/DDD
+  // Analisar nome do arquivo com IA para extrair região/DDD (se ativa)
   let infoRegiao: string | null = null;
   if (campanha.midia?.nome) {
     try {
-      const { analisarNomeArquivo } = await import("./ia-arquivo");
-      const resultado = await analisarNomeArquivo(campanha.midia.nome);
-      infoRegiao = resultado.textoFormatado;
+      // Verificar se IA está ativa
+      const { queryOne } = await import("./db");
+      const config = await queryOne<{ valor: string }>(
+        "select valor from configuracoes where chave = 'ia_ddd_ativa'",
+      );
+      const iaAtiva = config?.valor !== "false"; // padrão: true
+
+      if (iaAtiva) {
+        const { analisarNomeArquivo } = await import("./ia-arquivo");
+        const resultado = await analisarNomeArquivo(campanha.midia.nome);
+        infoRegiao = resultado.textoFormatado;
+      }
     } catch (err) {
       console.error("[WhatsApp] Erro ao analisar nome do arquivo:", err);
     }

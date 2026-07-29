@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { Link, useRouter } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3,
+  Brain,
   ClipboardList,
   FileBarChart,
   Laptop,
@@ -13,7 +14,7 @@ import {
 } from "lucide-react";
 
 import { sair, type Sessao } from "@/lib/auth";
-import { listarCampanhas } from "@/lib/campanhas";
+import { listarCampanhas, buscarConfiguracao, salvarConfiguracao } from "@/lib/campanhas";
 import { formatNumber, type MetaBase } from "@/lib/mix-data";
 import { SinoNotificacoes } from "@/components/notificacoes/SinoNotificacoes";
 
@@ -81,6 +82,53 @@ function ThemeToggle() {
         })}
       </div>
     </>
+  );
+}
+
+/** Toggle de IA para identificação de DDD — só admin vê e controla. */
+function ToggleIA() {
+  const queryClient = useQueryClient();
+  const [ativa, setAtiva] = useState(true);
+  const [carregado, setCarregado] = useState(false);
+
+  // Buscar estado atual da configuração
+  useEffect(() => {
+    buscarConfiguracao({ data: { chave: "ia_ddd_ativa" } }).then((valor) => {
+      setAtiva(valor !== "false");
+      setCarregado(true);
+    });
+  }, []);
+
+  // Mutation para salvar
+  const mutation = useMutation({
+    mutationFn: (novoValor: boolean) =>
+      salvarConfiguracao({ data: { chave: "ia_ddd_ativa", valor: String(novoValor) } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["configuracoes"] });
+    },
+  });
+
+  function alternar() {
+    const novo = !ativa;
+    setAtiva(novo);
+    mutation.mutate(novo);
+  }
+
+  if (!carregado) return null;
+
+  return (
+    <button
+      onClick={alternar}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition ${
+        ativa
+          ? "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-300"
+          : "border-border bg-card text-muted-foreground hover:bg-muted"
+      }`}
+      title={ativa ? "IA ativa — clique para desativar" : "IA desativada — clique para ativar"}
+    >
+      <Brain className="h-3.5 w-3.5" />
+      <span className="hidden sm:inline">IA DDD {ativa ? "ON" : "OFF"}</span>
+    </button>
   );
 }
 
@@ -250,6 +298,7 @@ export function AppShell({
           <div className="no-print flex shrink-0 items-center gap-1.5 sm:gap-2">
             {actions}
             <ThemeToggle />
+            {sessao.papel === "admin" && <ToggleIA />}
             {sessao.papel === "admin" && <SinoNotificacoes />}
 
             {/* Quem está logado e com qual papel — evita agir na conta errada */}

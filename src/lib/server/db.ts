@@ -54,6 +54,7 @@ const MIGRACOES_ESPERADAS = [
   "003_antecedencia_aviso.sql",
   "004_botao.sql",
   "005_notificacoes.sql",
+  "006_config_ia.sql",
 ];
 
 /**

@@ -629,3 +629,31 @@ export const registrarEdicaoPdf = createServerFn({ method: "POST" })
 
     return { ok: true as const };
   });
+
+/* ──────────────────────────── CONFIGURAÇÕES ────────────────────────── */
+
+/** Busca configuração do sistema. */
+export const buscarConfiguracao = createServerFn({ method: "GET" })
+  .validator(z.object({ chave: z.string() }))
+  .handler(async ({ data }): Promise<string | null> => {
+    const { queryOne } = await import("./server/db");
+    const row = await queryOne<{ valor: string }>(
+      "select valor from configuracoes where chave = $1",
+      [data.chave],
+    );
+    return row?.valor ?? null;
+  });
+
+/** Salva configuração do sistema (só admin). */
+export const salvarConfiguracao = createServerFn({ method: "POST" })
+  .validator(z.object({ chave: z.string(), valor: z.string() }))
+  .handler(async ({ data }) => {
+    const sessao = await exigirSessaoServidor();
+    if (sessao.papel !== "admin") throw new Error("Apenas administradores podem alterar configurações.");
+    const { query } = await import("./server/db");
+    await query(
+      "insert into configuracoes (chave, valor) values ($1, $2) on conflict (chave) do update set valor = $2, atualizado_em = now()",
+      [data.chave, data.valor],
+    );
+    return { ok: true as const };
+  });

@@ -270,6 +270,7 @@ export async function criarCampanha(sessao: Sessao, entrada: NovaCampanha): Prom
 
   const criada = await buscarCampanha(sessao, rows[0].id);
   if (!criada) throw new Error("Campanha criada mas não encontrada.");
+
   return criada;
 }
 

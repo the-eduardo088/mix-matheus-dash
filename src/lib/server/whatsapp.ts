@@ -25,10 +25,15 @@ function headers(): Record<string, string> {
 
 /** Envia mensagem de texto simples para o grupo */
 async function enviarTexto(texto: string): Promise<void> {
+  console.log("[WhatsApp] enviarTexto chamado");
   if (!UAZAPI_TOKEN || !WHATSAPP_GROUP_ID) {
-    console.warn("[WhatsApp] Token ou Group ID não configurados — ignorando envio");
+    console.error("[WhatsApp] Token ou Group ID não configurados:", {
+      token: UAZAPI_TOKEN ? "SET" : "MISSING",
+      groupId: WHATSAPP_GROUP_ID ? "SET" : "MISSING",
+    });
     return;
   }
+  console.log("[WhatsApp] Enviando texto para:", WHATSAPP_GROUP_ID);
 
   const resp = await fetch(`${UAZAPI_BASE}/send/text`, {
     method: "POST",
@@ -39,9 +44,11 @@ async function enviarTexto(texto: string): Promise<void> {
     }),
   });
 
+  const body = await resp.text();
   if (!resp.ok) {
-    const body = await resp.text();
     console.error("[WhatsApp] Erro ao enviar texto:", resp.status, body);
+  } else {
+    console.log("[WhatsApp] Texto enviado com sucesso:", body.substring(0, 200));
   }
 }
 

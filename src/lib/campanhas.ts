@@ -570,8 +570,10 @@ export const enviarWhatsAppGrupo = createServerFn({ method: "POST" })
     );
     if (!campanha) throw new Error("Campanha não encontrada.");
 
+    console.log("[WhatsApp] enviarWhatsAppGrupo chamado, tipo:", data.tipo);
     const { notificarCampanhaNova, notificarCampanhaEditada } = await import("./server/whatsapp");
     const host = process.env.APP_URL ?? "https://mix-campanha.atonnscore.com.br";
+    console.log("[WhatsApp] host:", host);
 
     const payload = {
       id: campanha.id,
@@ -593,11 +595,13 @@ export const enviarWhatsAppGrupo = createServerFn({ method: "POST" })
         : null,
     };
 
+    console.log("[WhatsApp] Enviando para grupo...");
     if (data.tipo === "nova") {
       await notificarCampanhaNova(payload, host);
     } else {
       await notificarCampanhaEditada(payload, sessao.nome, host);
     }
+    console.log("[WhatsApp] Finalizado com sucesso");
 
     return { ok: true as const };
   });

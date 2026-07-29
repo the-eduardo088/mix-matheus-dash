@@ -22,44 +22,53 @@ type ResultadoIA = {
 };
 
 /** Prompt do sistema para análise de arquivo */
-const SYSTEM_PROMPT = `Você é um assistente que analisa nomes de arquivos de campanhas de marketing para identificar informações geográficas.
+const SYSTEM_PROMPT = `Você é um assistente que analisa NOMES DE ARQUIVOS de campanhas de marketing para identificar informações geográficas.
 
-Analise o nome do arquivo fornecido e extraia:
-1. UF (sigla do estado, ex: PE, PB, AL, BA, SE, CE, RN, PI, MA)
-2. Nome do estado por extenso
-3. Região mencionada (se houver)
-4. DDD do estado
+IMPORTANTE: Analise CADA PALAVRA do nome do arquivo. Procure por:
+1. Siglas de estados: PE, PB, AL, BA, SE, CE, RN, PI, MA
+2. Nomes de regiões: Sertão, Agreste, Zona da Mata, Litoral, Cariri, Oeste, Sul, Norte, Centro, Metropolitana
+3. Siglas de regiões metropolitanas: RMR, RMJP, RMS, RMF
+4. Nomes de cidades que indiquem a região
 
-Mapeamento de UFs para DDDs (use SEMPRE o DDD principal do estado):
-- PE (Pernambuco): 81
-- PB (Paraíiba): 83
-- AL (Alagoas): 82
-- BA (Bahia): 71
-- SE (Sergipe): 79
-- CE (Ceará): 85
-- RN (Rio Grande do Norte): 84
-- PI (Piauí): 86
-- MA (Maranhão): 98
+Mapeamento OBRIGATÓRIO de UFs para DDDs:
+- PE = Pernambuco = 81
+- PB = Paraíba = 83
+- AL = Alagoas = 82
+- BA = Bahia = 71
+- SE = Sergipe = 79
+- CE = Ceará = 85
+- RN = Rio Grande do Norte = 84
+- PI = Piauí = 86
+- MA = Maranhão = 98
 
-Mapeamento de regiões:
-- RMR ou Região Metropolitana do Recife → Região Metropolitana
-- RMJP ou Região Metropolitana de João Pessoa → Região Metropolitana
-- RMS ou Região Metropolitana de Salvador → Região Metropolitana
-- RMF ou Região Metropolitana de Fortaleza → Região Metropolitana
-- Sertão, Agreste, Zona da Mata, Litoral, Cariri, Oeste, Sul, Norte, Centro
+Mapeamento de regiões (procure essas PALAVRAS no nome do arquivo):
+- "Metropolitana" ou "RMR" ou "RMJP" ou "RMS" ou "RMF" → "Região Metropolitana"
+- "Sertão" → "Sertão"
+- "Agreste" → "Agreste"
+- "Zona da Mata" → "Zona da Mata"
+- "Litoral" → "Litoral"
+- "Cariri" → "Cariri"
 
-REGRAS IMPORTANTES:
-- O DDD NUNCA varia conforme cidade, região ou mesorregião
-- SEMPRE use o DDD principal do estado
-- Se não encontrar UF no nome, retorne null para todos os campos
-- Formato de resposta: JSON válido
+REGRAS RÍGIDAS:
+1. O DDD é SEMPRE o principal do estado (não varia por cidade/região)
+2. SE encontrar UF no nome, OBRIGATORIAMENTE retorne todos os campos
+3. Se encontrar palavra de região (Sertão, Agreste, etc.), OBRIGATORIAMENTE retorne o campo "regiao"
+4. NUNCA retorne null para "regiao" se a palavra estiver no nome do arquivo
+5. Formato: JSON válido APENAS
 
-Responda APENAS com JSON no formato:
+EXEMPLOS:
+- "2965 PE Sertão" → {"uf":"PE","estado":"Pernambuco","regiao":"Sertão","ddd":"81"}
+- "Semanal RMJP Paraíba" → {"uf":"PB","estado":"Paraíba","regiao":"Região Metropolitana","ddd":"83"}
+- "Promoção Alagoas Litoral" → {"uf":"AL","estado":"Alagoas","regiao":"Litoral","ddd":"82"}
+- "96 Itens BA Cariri" → {"uf":"BA","estado":"Bahia","regiao":"Cariri","ddd":"71"}
+- "Lista RN Agreste" → {"uf":"RN","estado":"Rio Grande do Norte","regiao":"Agreste","ddd":"84"}
+
+Responda APENAS com JSON:
 {
-  "uf": "PB" ou null,
-  "estado": "Paraíba" ou null,
-  "regiao": "Região Metropolitana" ou null,
-  "ddd": "83" ou null
+  "uf": "UF" ou null,
+  "estado": "Nome do Estado" ou null,
+  "regiao": "Nome da Região" ou null,
+  "ddd": "DDD" ou null
 }`;
 
 /**

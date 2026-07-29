@@ -84,6 +84,10 @@ export async function analisarNomeArquivo(nomeArquivo: string): Promise<Resultad
   }
 
   try {
+    // Timeout de 10 segundos para não travar
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
     const resp = await fetch(`${MIMO_API_URL}/chat/completions`, {
       method: "POST",
       headers: {
@@ -99,7 +103,10 @@ export async function analisarNomeArquivo(nomeArquivo: string): Promise<Resultad
         temperature: 0.1,
         max_tokens: 200,
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeout);
 
     if (!resp.ok) {
       const erro = await resp.text();
@@ -116,18 +123,24 @@ export async function analisarNomeArquivo(nomeArquivo: string): Promise<Resultad
     }
 
     // Extrair JSON da resposta (pode vir com ```json ou texto extra)
-    const jsonMatch = conteudo.match(/\{[\s\S]*?\}/);
+    // Primeiro, remover blocos de código markdown se existirem
+    let conteudoLimpo = conteudo.replace(/```json\s*/gi, "").replace(/```\s*/g, "");
+    
+    // Encontrar o JSON na resposta
+    const jsonMatch = conteudoLimpo.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.error("[IA] Não foi possível extrair JSON da resposta:", conteudo);
       return { uf: null, estado: null, regiao: null, ddd: null, textoFormatado: null };
     }
 
-    const resultado = JSON.parse(jsonMatch[0]) as {
-      uf: string | null;
-      estado: string | null;
-      regiao: string | null;
-      ddd: string | null;
-    };
+    // Tentar fazer parse do JSON
+    let resultado: { uf: string | null; estado: string | null; regiao: string | null; ddd: string | null };
+    try {
+      resultado = JSON.parse(jsonMatch[0]);
+    } catch (parseErr) {
+      console.error("[IA] Erro ao fazer parse do JSON:", jsonMatch[0], parseErr);
+      return { uf: null, estado: null, regiao: null, ddd: null, textoFormatado: null };
+    }
 
     // Montar texto formatado para usar na mensagem
     let textoFormatado: string | null = null;

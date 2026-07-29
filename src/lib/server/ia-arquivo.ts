@@ -84,9 +84,9 @@ export async function analisarNomeArquivo(nomeArquivo: string): Promise<Resultad
   }
 
   try {
-    // Timeout de 10 segundos para não travar
+    // Timeout de 25 segundos — a IA pode demorar até isso
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timeout = setTimeout(() => controller.abort(), 25000);
 
     const resp = await fetch(`${MIMO_API_URL}/chat/completions`, {
       method: "POST",

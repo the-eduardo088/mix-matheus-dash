@@ -482,10 +482,11 @@ export const registrarEdicaoPdf = createServerFn({ method: "POST" })
       midia_mime: string | null;
     }>(
       `select c.nome, c.midia_id, c.agendada_para, c.status, c.copy,
-              c.criada_por_nome, c.cidade, c.botao_texto, c.botao_url,
+              u.nome as criada_por_nome, c.cidade, c.botao_texto, c.botao_url,
               a.nome_original as midia_nome, a.kind as midia_kind, a.mime as midia_mime
        from campanhas c
        left join arquivos a on a.id = c.midia_id
+       left join usuarios u on u.id = c.criada_por
        where c.id = $1`,
       [data.campanhaId],
     );
@@ -558,11 +559,12 @@ export const enviarWhatsAppGrupo = createServerFn({ method: "POST" })
       midia_mime: string | null;
     }>(
       `select c.id, c.nome, c.agendada_para, c.status, c.copy,
-              c.criada_por_nome, c.cidade, c.botao_texto, c.botao_url,
+              u.nome as criada_por_nome, c.cidade, c.botao_texto, c.botao_url,
               a.id as midia_id, a.nome_original as midia_nome,
               a.kind as midia_kind, a.mime as midia_mime
        from campanhas c
        left join arquivos a on a.id = c.midia_id
+       left join usuarios u on u.id = c.criada_por
        where c.id = $1`,
       [data.campanhaId],
     );

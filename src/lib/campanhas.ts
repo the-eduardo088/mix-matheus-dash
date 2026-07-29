@@ -520,88 +520,48 @@ export const registrarEdicaoPdf = createServerFn({ method: "POST" })
 
     // Buscar dados do novo arquivo para notificação WhatsApp
     const novaMidia = await queryOne<{
+      id: string;
       nome_original: string;
       kind: string;
       mime: string;
     }>(
-      "select nome_original, kind, mime from arquivos where id = $1",
+      "select id, nome_original, kind, mime from arquivos where id = $1",
       [data.novaMidiaId],
     );
 
     await notificarPdfEditado(data.campanhaId, sessao.nome, campanha.nome);
 
-    return { ok: true as const };
-  });
-
-/* ──────────────────────────── WHATSAPP MANUAL ────────────────────────── */
-
-/** Envia notificação WhatsApp para o grupo — acionado manualmente pelo usuário. */
-export const enviarWhatsAppGrupo = createServerFn({ method: "POST" })
-  .validator(z.object({ campanhaId: z.string().uuid(), tipo: z.enum(["nova", "editada"]) }))
-  .handler(async ({ data }) => {
-    const sessao = await exigirSessaoServidor();
-    const { queryOne } = await import("./server/db");
-
-    // Buscar dados completos da campanha
-    const campanha = await queryOne<{
-      id: string;
-      nome: string;
-      agendada_para: Date;
-      status: string;
-      copy: string;
-      criada_por_nome: string;
-      cidade: string | null;
-      botao_texto: string | null;
-      botao_url: string | null;
-      midia_id: string | null;
-      midia_nome: string | null;
-      midia_kind: string | null;
-      midia_mime: string | null;
-    }>(
-      `select c.id, c.nome, c.agendada_para, c.status, c.copy,
-              u.nome as criada_por_nome, c.cidade, c.botao_texto, c.botao_url,
-              a.id as midia_id, a.nome_original as midia_nome,
-              a.kind as midia_kind, a.mime as midia_mime
-       from campanhas c
-       left join arquivos a on a.id = c.midia_id
-       left join usuarios u on u.id = c.criada_por
-       where c.id = $1`,
-      [data.campanhaId],
-    );
-    if (!campanha) throw new Error("Campanha não encontrada.");
-
-    console.log("[WhatsApp] enviarWhatsAppGrupo chamado, tipo:", data.tipo);
-    const { notificarCampanhaNova, notificarCampanhaEditada } = await import("./server/whatsapp");
-    const host = process.env.APP_URL ?? "https://mix-campanha.atonnscore.com.br";
-    console.log("[WhatsApp] host:", host);
-
-    const payload = {
-      id: campanha.id,
-      nome: campanha.nome,
-      agendadaPara: campanha.agendada_para.toISOString(),
-      status: campanha.status,
-      copy: campanha.copy,
-      criadaPorNome: campanha.criada_por_nome,
-      cidade: campanha.cidade,
-      botaoTexto: campanha.botao_texto,
-      botaoUrl: campanha.botao_url,
-      midia: campanha.midia_id
-        ? {
-            id: campanha.midia_id,
-            nome: campanha.midia_nome!,
-            kind: campanha.midia_kind as MediaKind,
-            mime: campanha.midia_mime!,
-          }
-        : null,
-    };
-
-    console.log("[WhatsApp] Enviando para grupo...");
-    if (data.tipo === "nova") {
-      await notificarCampanhaNova(payload, host);
-    } else {
-      await notificarCampanhaEditada(payload, sessao.nome, host);
+    // Notificação automática para o grupo WhatsApp (campanha editada)
+    try {
+      const { notificarCampanhaEditada } = await import("./server/whatsapp");
+      const host = process.env.APP_URL ?? "https://mix-campanha.atonnscore.com.br";
+      await notificarCampanhaEditada(
+        {
+          id: data.campanhaId,
+          nome: campanha.nome,
+          agendadaPara: campanha.agendada_para.toISOString(),
+          status: campanha.status,
+          copy: campanha.copy,
+          criadaPorNome: campanha.criada_por_nome,
+          cidade: campanha.cidade,
+          botaoTexto: campanha.botao_texto,
+          botaoUrl: campanha.botao_url,
+          midia: novaMidia
+            ? {
+                id: novaMidia.id,
+                nome: novaMidia.nome_original,
+                kind: novaMidia.kind as MediaKind,
+                mime: novaMidia.mime,
+              }
+            : null,
+        },
+        sessao.nome,
+        host,
+      );
+    } catch (err) {
+      // Falha no WhatsApp não deve impedir a edição do PDF
+      console.error("[WhatsApp] Erro ao notificar campanha editada:", err);
     }
-    console.log("[WhatsApp] Finalizado com sucesso");
 
     return { ok: true as const };
   });

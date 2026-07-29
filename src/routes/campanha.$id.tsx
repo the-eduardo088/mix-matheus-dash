@@ -37,6 +37,7 @@ import {
   buscarCampanha,
   cancelarCampanha,
   distanciaAte,
+  enviarWhatsAppGrupo,
   excluirCampanha,
   enviarMidia,
   formatarBytes,
@@ -113,6 +114,7 @@ function Detalhe({ sessao }: { sessao: Sessao }) {
   const [ocupado, setOcupado] = useState(false);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
   const [editandoPdf, setEditandoPdf] = useState(false);
+  const [enviandoWhatsApp, setEnviandoWhatsApp] = useState(false);
 
   const {
     data: c,
@@ -139,6 +141,20 @@ function Detalhe({ sessao }: { sessao: Sessao }) {
     } catch (e) {
       setErroAcao(e instanceof Error ? e.message : "Não foi possível concluir a ação.");
       setOcupado(false);
+    }
+  }
+
+  async function enviarWhatsApp(tipo: "nova" | "editada") {
+    if (!c) return;
+    setEnviandoWhatsApp(true);
+    setErroAcao(null);
+    try {
+      await enviarWhatsAppGrupo({ data: { campanhaId: c.id, tipo } });
+      alert("Enviado para o grupo WhatsApp!");
+    } catch (e) {
+      setErroAcao(e instanceof Error ? e.message : "Erro ao enviar WhatsApp.");
+    } finally {
+      setEnviandoWhatsApp(false);
     }
   }
 
@@ -198,6 +214,18 @@ function Detalhe({ sessao }: { sessao: Sessao }) {
         </button>
 
         <div className="no-print flex items-center gap-1.5">
+          {/* Botão WhatsApp — só admin, manual */}
+          {ehAdmin && (
+            <button
+              onClick={() => enviarWhatsApp("nova")}
+              disabled={ocupado || enviandoWhatsApp}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-2 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+            >
+              <Send className="h-3.5 w-3.5" />
+              {enviandoWhatsApp ? "Enviando…" : "Enviar p/ WhatsApp"}
+            </button>
+          )}
+
           {!encerrada && (
             <button
               onClick={cancelar}

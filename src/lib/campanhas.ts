@@ -293,6 +293,75 @@ export const cancelarCampanha = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+/* ──────────────────────────── WHATSAPP MANUAL ────────────────────────── */
+
+/** Envia notificação WhatsApp para o grupo — acionado manualmente pelo admin. */
+export const enviarWhatsAppGrupo = createServerFn({ method: "POST" })
+  .validator(z.object({ campanhaId: z.string().uuid(), tipo: z.enum(["nova", "editada"]) }))
+  .handler(async ({ data }) => {
+    const sessao = await exigirSessaoServidor();
+    const { queryOne } = await import("./server/db");
+
+    // Buscar dados completos da campanha
+    const campanha = await queryOne<{
+      id: string;
+      nome: string;
+      agendada_para: Date;
+      status: string;
+      copy: string;
+      criada_por_nome: string;
+      cidade: string | null;
+      botao_texto: string | null;
+      botao_url: string | null;
+      midia_id: string | null;
+      midia_nome: string | null;
+      midia_kind: string | null;
+      midia_mime: string | null;
+    }>(
+      `select c.id, c.nome, c.agendada_para, c.status, c.copy,
+              u.nome as criada_por_nome, c.cidade, c.botao_texto, c.botao_url,
+              a.id as midia_id, a.nome_original as midia_nome,
+              a.kind as midia_kind, a.mime as midia_mime
+       from campanhas c
+       left join arquivos a on a.id = c.midia_id
+       left join usuarios u on u.id = c.criada_por
+       where c.id = $1`,
+      [data.campanhaId],
+    );
+    if (!campanha) throw new Error("Campanha não encontrada.");
+
+    const { notificarCampanhaNova, notificarCampanhaEditada } = await import("./server/whatsapp");
+    const host = process.env.APP_URL ?? "https://mix-campanha.atonnscore.com.br";
+
+    const payload = {
+      id: campanha.id,
+      nome: campanha.nome,
+      agendadaPara: campanha.agendada_para.toISOString(),
+      status: campanha.status,
+      copy: campanha.copy,
+      criadaPorNome: campanha.criada_por_nome,
+      cidade: campanha.cidade,
+      botaoTexto: campanha.botao_texto,
+      botaoUrl: campanha.botao_url,
+      midia: campanha.midia_id
+        ? {
+            id: campanha.midia_id,
+            nome: campanha.midia_nome!,
+            kind: campanha.midia_kind as MediaKind,
+            mime: campanha.midia_mime!,
+          }
+        : null,
+    };
+
+    if (data.tipo === "nova") {
+      await notificarCampanhaNova(payload, host);
+    } else {
+      await notificarCampanhaEditada(payload, sessao.nome, host);
+    }
+
+    return { ok: true as const };
+  });
+
 export const excluirCampanha = createServerFn({ method: "POST" })
   .validator(z.object({ id: z.string().uuid() }))
   .handler(async ({ data }) => {

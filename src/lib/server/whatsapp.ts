@@ -25,15 +25,10 @@ function headers(): Record<string, string> {
 
 /** Envia mensagem de texto simples para o grupo */
 async function enviarTexto(texto: string): Promise<void> {
-  console.log("[WhatsApp] enviarTexto chamado");
   if (!UAZAPI_TOKEN || !WHATSAPP_GROUP_ID) {
-    console.error("[WhatsApp] Token ou Group ID não configurados:", {
-      token: UAZAPI_TOKEN ? "SET" : "MISSING",
-      groupId: WHATSAPP_GROUP_ID ? "SET" : "MISSING",
-    });
+    console.error("[WhatsApp] Token ou Group ID não configurados");
     return;
   }
-  console.log("[WhatsApp] Enviando texto para:", WHATSAPP_GROUP_ID);
 
   const resp = await fetch(`${UAZAPI_BASE}/send/text`, {
     method: "POST",
@@ -44,11 +39,9 @@ async function enviarTexto(texto: string): Promise<void> {
     }),
   });
 
-  const body = await resp.text();
   if (!resp.ok) {
+    const body = await resp.text();
     console.error("[WhatsApp] Erro ao enviar texto:", resp.status, body);
-  } else {
-    console.log("[WhatsApp] Texto enviado com sucesso:", body.substring(0, 200));
   }
 }
 
@@ -92,9 +85,9 @@ function mapTipoMidia(kind: MediaKind): "image" | "video" | "document" {
   return "document";
 }
 
-/** URL pública de download de um arquivo da campanha */
+/** URL pública de download de um arquivo da campanha (sem autenticação) */
 function urlArquivoPublico(host: string, arquivoId: string): string {
-  return `${host}/arquivos/${arquivoId}`;
+  return `${host}/pub/${arquivoId}`;
 }
 
 /** Formata data para notificação */
@@ -137,7 +130,6 @@ async function enviarCampanhaLimpa(
   campanha: CampanhaNotificacao,
   host: string,
 ): Promise<void> {
-  console.log("[WhatsApp] enviarCampanhaLimpa chamado, midia:", campanha.midia ? "SIM" : "NÃO");
   // Montar texto da campanha exatamente como está
   let textoCampanha = campanha.copy;
 
@@ -150,10 +142,7 @@ async function enviarCampanhaLimpa(
   if (campanha.midia) {
     const url = urlArquivoPublico(host, campanha.midia.id);
     const tipo = mapTipoMidia(campanha.midia.kind);
-    console.log("[WhatsApp] Enviando mídia:", { tipo, url, nome: campanha.midia.nome });
 
-    // Para imagem/vídeo: texto vai como caption
-    // Para documento: texto vai como caption também
     await enviarMidia(
       tipo,
       url,
@@ -161,7 +150,6 @@ async function enviarCampanhaLimpa(
       tipo === "document" ? campanha.midia.nome : undefined,
     );
   } else {
-    console.log("[WhatsApp] Sem mídia, enviando só texto");
     // Sem mídia — enviar só o texto
     await enviarTexto(textoCampanha);
   }

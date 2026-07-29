@@ -90,22 +90,64 @@ async function servirArquivo(request: Request, id: string): Promise<Response> {
   });
 }
 
+/**
+ * Endpoint público para download de arquivos (sem autenticação).
+ * Usado pelo WhatsApp/Uazapi para acessar anexos como mídia.
+ * Apenas arquivos de campanhas são servidos.
+ */
+async function servirArquivoPublico(request: Request, id: string): Promise<Response> {
+  const { localizarArquivo, abrirStream, etagDe } = await import("./lib/server/arquivos");
+  const arquivo = await localizarArquivo(id);
+  if (!arquivo) return new Response("Arquivo não encontrado", { status: 404 });
+
+  const etag = etagDe(id, arquivo.tamanho);
+  if (request.headers.get("if-none-match") === etag) {
+    return new Response(null, { status: 304, headers: { etag } });
+  }
+
+  return new Response(abrirStream(arquivo.caminhoAbsoluto), {
+    headers: {
+      "content-type": arquivo.mime,
+      "content-length": String(arquivo.tamanho),
+      "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(arquivo.nome)}`,
+      etag,
+      "cache-control": "public, max-age=3600",
+    },
+  });
+}
+
 // UUID canônico (8-4-4-4-12). O padrão frouxo "[0-9a-f-]{36}" aceitava 36
 // hífens e ia parar num cast inválido no Postgres, virando página de erro 500
 // onde o certo é 404.
 const ROTA_ARQUIVO =
   /^\/arquivos\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
+// Rota pública: /pub/{uuid} - sem autenticação, para WhatsApp/Uazapi
+const ROTA_ARQUIVO_PUBLICO =
+  /^\/pub\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
-      const arquivo = ROTA_ARQUIVO.exec(new URL(request.url).pathname);
+      const url = new URL(request.url);
+      
+      // Rota pública primeiro (sem auth)
+      const arquivoPub = ROTA_ARQUIVO_PUBLICO.exec(url.pathname);
+      if (arquivoPub) {
+        try {
+          return await servirArquivoPublico(request, arquivoPub[1]);
+        } catch (err) {
+          console.error("[arquivos-publico] falha ao servir:", err);
+          return new Response("Arquivo não encontrado", { status: 404 });
+        }
+      }
+
+      // Rota autenticada
+      const arquivo = ROTA_ARQUIVO.exec(url.pathname);
       if (arquivo) {
         try {
           return await servirArquivo(request, arquivo[1]);
         } catch (err) {
-          // Falha ao servir um anexo não deve virar página de erro 500 do app
-          // inteiro — é um recurso pontual. Loga e responde 404.
           console.error("[arquivos] falha ao servir:", err);
           return new Response("Arquivo não encontrado", { status: 404 });
         }

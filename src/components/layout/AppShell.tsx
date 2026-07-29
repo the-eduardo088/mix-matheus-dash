@@ -15,6 +15,7 @@ import {
 import { sair, type Sessao } from "@/lib/auth";
 import { listarCampanhas } from "@/lib/campanhas";
 import { formatNumber, type MetaBase } from "@/lib/mix-data";
+import { SinoNotificacoes } from "@/components/notificacoes/SinoNotificacoes";
 
 type ThemeMode = "auto" | "light" | "dark";
 
@@ -249,6 +250,7 @@ export function AppShell({
           <div className="no-print flex shrink-0 items-center gap-1.5 sm:gap-2">
             {actions}
             <ThemeToggle />
+            {sessao.papel === "admin" && <SinoNotificacoes />}
 
             {/* Quem está logado e com qual papel — evita agir na conta errada */}
             <div className="hidden min-w-0 border-l pl-2 text-right lg:block">

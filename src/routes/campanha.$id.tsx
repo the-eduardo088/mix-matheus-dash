@@ -1,25 +1,31 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowLeft,
   Ban,
   CalendarClock,
+  CheckCheck,
   Clock,
   ExternalLink,
+  FileEdit,
   MapPin,
   MessageSquare,
   Send,
   Trash2,
+  Upload,
   User,
   Users,
+  X,
 } from "lucide-react";
+import { useState, useCallback, useRef } from "react";
 
 import { AppShell } from "@/components/layout/AppShell";
 import { exigirSessao } from "@/lib/guards";
 import { BalaoWhatsApp } from "@/components/campaigns/BalaoWhatsApp";
 import { MediaIcon } from "@/components/campaigns/MediaPreview";
 import { FormularioRelatorio, RevisaoCampanha } from "@/components/campaigns/AcoesAdmin";
+import { EditorPdf } from "@/components/campaigns/EditorPdf";
 import { RelatorioCampanha } from "@/components/campaigns/RelatorioCampanha";
 import { formatNumber } from "@/lib/mix-data";
 import type { Sessao } from "@/lib/auth";
@@ -31,12 +37,15 @@ import {
   cancelarCampanha,
   distanciaAte,
   excluirCampanha,
+  enviarMidia,
   formatarBytes,
   formatarDataHora,
+  registrarEdicaoPdf,
   urlDoArquivo,
+  type CampanhaDTO,
+  type MidiaCampanha,
   type StatusCampanha,
 } from "@/lib/campanhas";
-import { useState } from "react";
 
 export const Route = createFileRoute("/campanha/$id")({
   head: () => ({
@@ -99,8 +108,10 @@ function Linha({
 function Detalhe({ sessao }: { sessao: Sessao }) {
   const { id } = Route.useParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [ocupado, setOcupado] = useState(false);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
+  const [editandoPdf, setEditandoPdf] = useState(false);
 
   const {
     data: c,
@@ -325,6 +336,16 @@ function Detalhe({ sessao }: { sessao: Sessao }) {
                   </span>
                   <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </a>
+                {/* Botão de editar PDF — só para PDFs */}
+                {c.midia.kind === "documento" && c.midia.mime === "application/pdf" && (
+                  <button
+                    onClick={() => setEditandoPdf(true)}
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/10"
+                  >
+                    <FileEdit className="h-3.5 w-3.5" />
+                    Editar PDF
+                  </button>
+                )}
               </div>
             )}
 
@@ -394,6 +415,16 @@ function Detalhe({ sessao }: { sessao: Sessao }) {
           />
         </div>
       </div>
+
+      {/* Modal de edição de PDF */}
+      {editandoPdf && c.midia && (
+        <EditorPdf
+          campanha={c}
+          midia={c.midia}
+          onFechar={() => setEditandoPdf(false)}
+          onSalvo={recarregar}
+        />
+      )}
     </>
   );
 }

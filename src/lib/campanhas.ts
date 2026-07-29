@@ -408,3 +408,71 @@ export function somarMetrica(
     .filter((v): v is number => typeof v === "number");
   return valores.length ? valores.reduce((a, b) => a + b, 0) : null;
 }
+
+/* ──────────────────────────── NOTIFICAÇÕES ───────────────────────────── */
+
+export type Notificacao = {
+  id: string;
+  campanhaId: string | null;
+  tipo: string;
+  mensagem: string;
+  lida: boolean;
+  criadoEm: string;
+};
+
+/** Lista notificações do usuário logado. */
+export const listarNotificacoes = createServerFn({ method: "GET" }).handler(
+  async (): Promise<Notificacao[]> => {
+    const sessao = await exigirSessaoServidor();
+    const { listarNotificacoes: listar } = await import("./server/notificacoes");
+    return listar(sessao);
+  },
+);
+
+/** Conta notificações não lidas. */
+export const contarNotificacoesNaoLidas = createServerFn({ method: "GET" }).handler(
+  async (): Promise<number> => {
+    const sessao = await exigirSessaoServidor();
+    const { contarNaoLidas } = await import("./server/notificacoes");
+    return contarNaoLidas(sessao);
+  },
+);
+
+/** Marca uma notificação como lida. */
+export const marcarNotificacaoLida = createServerFn({ method: "POST" })
+  .validator(z.object({ id: z.string().uuid() }))
+  .handler(async ({ data }) => {
+    const sessao = await exigirSessaoServidor();
+    const { marcarLida } = await import("./server/notificacoes");
+    await marcarLida(sessao, data.id);
+    return { ok: true as const };
+  });
+
+/** Marca todas as notificações como lidas. */
+export const marcarTodasNotificacoesLidas = createServerFn({ method: "POST" }).handler(
+  async () => {
+    const sessao = await exigirSessaoServidor();
+    const { marcarTodasLidas } = await import("./server/notificacoes");
+    await marcarTodasLidas(sessao);
+    return { ok: true as const };
+  },
+);
+
+/** Registra que um PDF foi editado e notifica os admins. */
+export const registrarEdicaoPdf = createServerFn({ method: "POST" })
+  .validator(z.object({ campanhaId: z.string().uuid() }))
+  .handler(async ({ data }) => {
+    const sessao = await exigirSessaoServidor();
+    const { notificarPdfEditado } = await import("./server/notificacoes");
+    const { queryOne } = await import("./server/db");
+
+    // Buscar nome da campanha
+    const campanha = await queryOne<{ nome: string }>(
+      "select nome from campanhas where id = $1",
+      [data.campanhaId],
+    );
+    if (!campanha) throw new Error("Campanha não encontrada.");
+
+    await notificarPdfEditado(data.campanhaId, sessao.nome, campanha.nome);
+    return { ok: true as const };
+  });

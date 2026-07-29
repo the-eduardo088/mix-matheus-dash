@@ -137,6 +137,7 @@ async function enviarCampanhaLimpa(
   campanha: CampanhaNotificacao,
   host: string,
 ): Promise<void> {
+  console.log("[WhatsApp] enviarCampanhaLimpa chamado, midia:", campanha.midia ? "SIM" : "NÃO");
   // Montar texto da campanha exatamente como está
   let textoCampanha = campanha.copy;
 
@@ -149,6 +150,7 @@ async function enviarCampanhaLimpa(
   if (campanha.midia) {
     const url = urlArquivoPublico(host, campanha.midia.id);
     const tipo = mapTipoMidia(campanha.midia.kind);
+    console.log("[WhatsApp] Enviando mídia:", { tipo, url, nome: campanha.midia.nome });
 
     // Para imagem/vídeo: texto vai como caption
     // Para documento: texto vai como caption também
@@ -159,6 +161,7 @@ async function enviarCampanhaLimpa(
       tipo === "document" ? campanha.midia.nome : undefined,
     );
   } else {
+    console.log("[WhatsApp] Sem mídia, enviando só texto");
     // Sem mídia — enviar só o texto
     await enviarTexto(textoCampanha);
   }

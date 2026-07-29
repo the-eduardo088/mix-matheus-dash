@@ -6,7 +6,7 @@
  */
 import { useState, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { X, Upload, Check, ExternalLink } from "lucide-react";
+import { X, Upload, Check, ExternalLink, FilePen } from "lucide-react";
 
 import {
   enviarMidia,
@@ -93,7 +93,7 @@ export function EditorPdf({ campanha, midia, onFechar, onSalvo }: EditorPdfProps
         <div className="flex items-center justify-between border-b px-6 py-4">
           <div className="flex items-center gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-              <FileEdit className="h-5 w-5" />
+              <FilePen className="h-5 w-5" />
             </span>
             <div>
               <h3 className="font-display text-lg font-semibold">Editar PDF</h3>
@@ -134,7 +134,7 @@ export function EditorPdf({ campanha, midia, onFechar, onSalvo }: EditorPdfProps
               <div className="space-y-3">
                 <div className="flex items-center gap-3 rounded-lg border bg-background p-3">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-                    <FileEdit className="h-5 w-5" />
+                    <FilePen className="h-5 w-5" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">{novoArquivo.name}</span>

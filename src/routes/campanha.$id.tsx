@@ -8,9 +8,10 @@ import {
   CheckCheck,
   Clock,
   ExternalLink,
-  FileEdit,
+  FilePen,
   MapPin,
   MessageSquare,
+  Pencil,
   Send,
   Trash2,
   Upload,
@@ -342,7 +343,7 @@ function Detalhe({ sessao }: { sessao: Sessao }) {
                     onClick={() => setEditandoPdf(true)}
                     className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/10"
                   >
-                    <FileEdit className="h-3.5 w-3.5" />
+                    <Pencil className="h-3.5 w-3.5" />
                     Editar PDF
                   </button>
                 )}

@@ -12,6 +12,7 @@ import {
   MapPin,
   MessageSquare,
   Pencil,
+  Send,
   Trash2,
   Upload,
   User,
